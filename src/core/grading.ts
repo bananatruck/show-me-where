@@ -141,11 +141,63 @@ export function sanitizeReason(reason: string): string {
 }
 
 const NUMBER = /\d+(?:[.,]\d+)?%?/g;
-const NEGATIONS = /\b(not|no|never|neither|nor|without|cannot|none)\b|n't\b/i;
-const HEDGES =
-  /\b(associated with|correlated with|linked to|may|might|could|suggests?|suggested|possibly|preliminary|appears? to)\b/i;
-const EARLIER_WORK =
-  /\b(previous(?:ly)?|prior (?:studies|work|research)|earlier (?:studies|work|research)|it has been (?:suggested|reported|shown|proposed)|we hypothesi[sz]ed)\b/i;
+const NEGATIONS = ["not", "no", "never", "neither", "nor", "without", "cannot", "none"];
+const HEDGES = [
+  "associated with",
+  "correlated with",
+  "linked to",
+  "may",
+  "might",
+  "could",
+  "suggest",
+  "suggests",
+  "suggested",
+  "possibly",
+  "preliminary",
+  "appear to",
+  "appears to",
+];
+const EARLIER_WORK = [
+  "previous",
+  "previously",
+  "prior studies",
+  "prior work",
+  "prior research",
+  "earlier studies",
+  "earlier work",
+  "earlier research",
+  "it has been suggested",
+  "it has been reported",
+  "it has been shown",
+  "it has been proposed",
+  "we hypothesised",
+  "we hypothesized",
+];
+
+/**
+ * Lower-case words of a text for the warnings: normalised the same way as the
+ * quote check, "n't" read as " not", and the month "May" before a number kept
+ * apart from the hedge "may".
+ */
+function warningText(text: string): string {
+  const words = normalizeForMatch(text)
+    .replace(/\bMay(?=\s+\d)/g, "month")
+    .toLowerCase()
+    .replace(/n't\b/g, " not")
+    .match(/[\p{L}\p{N}]+/gu);
+  return ` ${(words ?? []).join(" ")} `;
+}
+
+function occurrences(text: string, phrase: string): number {
+  return text.split(` ${phrase} `).length - 1;
+}
+
+/** The phrases that occur more often in the quote than in the claim, in the quote's order. */
+function extraPhrases(claim: string, evidence: string, phrases: readonly string[]): string[] {
+  return phrases
+    .filter((p) => occurrences(evidence, p) > occurrences(claim, p))
+    .sort((a, b) => evidence.indexOf(` ${a} `) - evidence.indexOf(` ${b} `));
+}
 
 /**
  * Whether the text has the same whole number token: "7" does not match "7.1",
@@ -166,20 +218,20 @@ function containsNumber(text: string, number: string): boolean {
  */
 export function warningsFor(claim: string, evidence: string): string[] {
   const warnings: string[] = [];
-  for (const number of new Set(claim.match(NUMBER) ?? [])) {
-    if (!containsNumber(evidence, number)) {
+  const claimText = normalizeForMatch(claim);
+  const evidenceText = normalizeForMatch(evidence);
+  for (const number of new Set(claimText.match(NUMBER) ?? [])) {
+    if (!containsNumber(evidenceText, number)) {
       warnings.push(`The claim says ${number}, which is not in the quoted sentence.`);
     }
   }
-  const negation = NEGATIONS.exec(evidence)?.[0];
-  if (negation && !new RegExp(`\\b${negation}\\b|n't`, "i").test(claim)) {
-    warnings.push(`The quoted sentence says "${negation.toLowerCase()}" and the claim does not.`);
-  }
-  const hedge = HEDGES.exec(evidence)?.[0];
-  if (hedge && !HEDGES.test(claim)) {
-    warnings.push(`The quoted sentence is hedged ("${hedge.toLowerCase()}") and the claim is not.`);
-  }
-  if (EARLIER_WORK.test(evidence) && !EARLIER_WORK.test(claim)) {
+  const c = warningText(claim);
+  const e = warningText(evidence);
+  const negation = extraPhrases(c, e, NEGATIONS)[0];
+  if (negation) warnings.push(`The quoted sentence says "${negation}" and the claim does not.`);
+  const hedge = extraPhrases(c, e, HEDGES)[0];
+  if (hedge) warnings.push(`The quoted sentence is hedged ("${hedge}") and the claim is not.`);
+  if (extraPhrases(c, e, EARLIER_WORK).length > 0) {
     warnings.push("The quoted sentence may describe earlier work, not this source's own finding.");
   }
   return warnings;

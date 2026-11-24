@@ -85,6 +85,43 @@ describe("warningsFor", () => {
     expect(warningsFor("A rise of 7 points.", "A rise of 7, then 9.")).toEqual([]);
   });
 
+  it("flags a second negation even when the claim shares the first", () => {
+    expect(
+      warningsFor("Patients with no prior therapy improved.", "Patients with no prior therapy did not improve."),
+    ).toEqual(['The quoted sentence says "not" and the claim does not.']);
+  });
+
+  it("does not read the month May in the claim as a hedge", () => {
+    expect(
+      warningsFor(
+        "The trial in May 2024 proved the vaccine prevents infection.",
+        "The vaccine might possibly be associated with lower infection.",
+      ),
+    ).toEqual([
+      "The claim says 2024, which is not in the quoted sentence.",
+      'The quoted sentence is hedged ("might") and the claim is not.',
+    ]);
+  });
+
+  it("does not let a whole number match a longer or decimal number", () => {
+    expect(warningsFor("Only 5 patients had side effects.", "Over 5,000 patients (5.8%) had side effects.")).toEqual([
+      "The claim says 5, which is not in the quoted sentence.",
+    ]);
+  });
+
+  it("reads soft hyphens and zero-width characters out of the quote before warning", () => {
+    expect(
+      warningsFor(
+        "The drug improves survival.",
+        "Pre\u00ADviously, a small study suggested the drug might\u00AD work, but it did n\u00ADot improve survival.",
+      ),
+    ).toEqual([
+      'The quoted sentence says "not" and the claim does not.',
+      'The quoted sentence is hedged ("suggested") and the claim is not.',
+      "The quoted sentence may describe earlier work, not this source's own finding.",
+    ]);
+  });
+
   it("flags a negation in the quote that the claim does not have", () => {
     expect(warningsFor("Older students improved.", "Older students did not improve.")).toEqual([
       'The quoted sentence says "not" and the claim does not.',
