@@ -77,6 +77,14 @@ describe("warningsFor", () => {
     ]);
   });
 
+  it("does not count a decimal in the quote as the claim's whole number", () => {
+    expect(warningsFor("Participants slept 7 hours.", "Participants slept 7.1 hours on average.")).toEqual([
+      "The claim says 7, which is not in the quoted sentence.",
+    ]);
+    expect(warningsFor("Participants slept 7.1 hours.", "They slept 7.1 hours.")).toEqual([]);
+    expect(warningsFor("A rise of 7 points.", "A rise of 7, then 9.")).toEqual([]);
+  });
+
   it("flags a negation in the quote that the claim does not have", () => {
     expect(warningsFor("Older students improved.", "Older students did not improve.")).toEqual([
       'The quoted sentence says "not" and the claim does not.',

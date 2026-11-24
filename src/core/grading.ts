@@ -140,9 +140,17 @@ const HEDGES =
 const EARLIER_WORK =
   /\b(previous(?:ly)?|prior (?:studies|work|research)|earlier (?:studies|work|research)|it has been (?:suggested|reported|shown|proposed)|we hypothesi[sz]ed)\b/i;
 
+/**
+ * Whether the text has the same whole number token: "7" does not match "7.1",
+ * and "18%" does not match "8%". A claim number without "%" also matches the
+ * same number with "%". Tokens are compared, so no pattern is built from input.
+ */
 function containsNumber(text: string, number: string): boolean {
-  const escaped = number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?<![\\d.,])${escaped}(?![\\d])`).test(text);
+  for (const token of text.match(NUMBER) ?? []) {
+    if (token === number) return true;
+    if (!number.endsWith("%") && token === `${number}%`) return true;
+  }
+  return false;
 }
 
 /**
