@@ -41,8 +41,11 @@ export function extractJatsText(
         const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
         if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
       });
-      // Nested blocks start a new sentence, so keep a space before each.
-      copy.querySelectorAll("p, list-item").forEach((block) => block.prepend(" "));
+      // Nested blocks start and end sentences, so keep a space on both sides.
+      copy.querySelectorAll("p, list-item, list").forEach((block) => {
+        block.prepend(" ");
+        block.append(" ");
+      });
       return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
     })
     .filter((text) => text !== "")

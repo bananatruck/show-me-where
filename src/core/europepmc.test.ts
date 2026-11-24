@@ -68,6 +68,12 @@ describe("europepmc", () => {
     expect(extractJatsText(xml)).toBe("Outer text. Inner item.");
   });
 
+  it("extractJatsText keeps a space after a nested list before the parent text goes on", () => {
+    const xml =
+      "<article><body><p>Outer.<list><list-item><p>Inner treatment improved survival.</p></list-item></list>Following sentence.</p></body></article>";
+    expect(extractJatsText(xml)).toBe("Outer. Inner treatment improved survival. Following sentence.");
+  });
+
   it("extractJatsText returns empty string for invalid XML", () => {
     expect(extractJatsText("<article><body><p>Broken</body></article>")).toBe("");
   });
