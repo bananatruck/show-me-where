@@ -36,7 +36,7 @@ Only free models, whose ids end in `:free`, are accepted.
 1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
 2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named.
-4. When citations sit at different points in a sentence, each source is checked against the part of the sentence its citation follows.
+4. When citations sit at different points in a sentence, each source is checked against the part of the sentence its citation follows. Narrative citations, a single citation group, and parts under three words fall back to the whole sentence.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
 7. The app keeps a grade only if the quote is one or more whole sentences found in the source text. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.

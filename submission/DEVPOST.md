@@ -26,7 +26,7 @@ The student ends up reading the right sentence of the right source, which is the
 1. Paste a paragraph and its reference list, in APA author-year style or numbered style.
 2. The app lists every cited claim, every sentence with no citation, and every citation that matches nothing in the reference list.
 3. For each source with a DOI, it reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources can be pasted in.
-4. Each claim is checked against each of its sources, and against only the part of the sentence that source is cited for.
+4. Each claim is checked against each of its sources. When a sentence cites different sources at different points, each source is checked against only the part of the sentence its citation follows; narrative citations such as "Smith (2020) found", a single citation group, and very short parts fall back to the whole sentence.
 5. Results show the model's reading (supported, partly supported, not supported) or the app's own outcome (cannot tell, source not reachable, check failed, sources disagree), with the verified sentence highlighted in context.
 
 A sample run, labelled on screen as a synthetic hand-written example, shows every outcome with no key and no network calls.
