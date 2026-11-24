@@ -99,15 +99,28 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(":free");
   });
 
-  it("keeps the key in session storage unless asked to remember it", () => {
+  it("keeps the key only in memory and wipes keys stored by earlier versions", () => {
+    window.localStorage.setItem("claim-check.openrouter-key", "old");
+    window.sessionStorage.setItem("claim-check.openrouter-key", "old");
+    render(<App />);
+    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBeNull();
+    expect(window.sessionStorage.getItem("claim-check.openrouter-key")).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
+    expect((screen.getByLabelText("OpenRouter key") as HTMLInputElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "abc" } });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(screen.queryByLabelText("Remember on this device")).toBeNull();
+  });
+
+  it("forgets the key when switching back to the sample run", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
     fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "abc" } });
-    expect(window.sessionStorage.getItem("claim-check.openrouter-key")).toBe("abc");
-    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBeNull();
-
-    fireEvent.click(screen.getByLabelText("Remember on this device"));
-    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBe("abc");
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
+    expect((screen.getByLabelText("OpenRouter key") as HTMLInputElement).value).toBe("");
   });
 
   it("switches to the dark theme and remembers it", () => {

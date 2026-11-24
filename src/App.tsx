@@ -6,7 +6,7 @@ import { fetchSourceByDoi, lookupDoi } from "./core/sources";
 import { withTimeout } from "./core/timeout";
 import type { FetchLike, SourceText } from "./core/types";
 import { SAMPLE_RUN } from "./fixtures/sample";
-import { loadKey, saveKey } from "./keyStore";
+import { forgetStoredKeys } from "./keyStore";
 import { Results } from "./ui/Results";
 import { HIGHLIGHT, applyTheme, initialTheme, type Theme } from "./ui/theme";
 
@@ -52,9 +52,8 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [mode, setMode] = useState<Mode>("sample");
   const [liveText, setLiveText] = useState("");
-  const [stored] = useState(loadKey);
-  const [apiKey, setApiKey] = useState(stored.key);
-  const [remember, setRemember] = useState(stored.remember);
+  // The key lives only in memory; it is gone when the page closes.
+  const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -71,6 +70,10 @@ export function App() {
   useEffect(() => {
     applyTheme(theme, false);
   }, [theme]);
+
+  useEffect(() => {
+    forgetStoredKeys();
+  }, []);
 
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
@@ -89,6 +92,7 @@ export function App() {
   function switchMode(next: Mode) {
     setMode(next);
     setPasted({});
+    if (next === "sample") setApiKey("");
     reset();
   }
 
@@ -96,12 +100,6 @@ export function App() {
     const next = theme === "dark" ? "light" : "dark";
     applyTheme(next, true);
     setTheme(next);
-  }
-
-  function changeKey(key: string, keep: boolean) {
-    setApiKey(key);
-    setRemember(keep);
-    saveKey(key, keep);
   }
 
   function findClaims() {
@@ -217,12 +215,12 @@ export function App() {
             <div className="reading">
               <p className="quiet">
                 In a live run, each DOI goes to Europe PMC for open-access full text, then to OpenAlex for the abstract if there is no full text.
-                Each claim and its source text go to OpenRouter under your key. Your key stays in this browser. Nothing else is sent anywhere.
+                Each claim and its source text go to OpenRouter under your key. Your key is kept only in this page's memory, never stored, and is forgotten when you switch to the sample run or close the page. Nothing else is sent anywhere.
               </p>
               <div className="key-row">
                 <label className="field">
                   <span>OpenRouter key</span>
-                  <input type="password" autoComplete="off" value={apiKey} onChange={(e) => changeKey(e.target.value, remember)} />
+                  <input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
                 </label>
                 <label className="field">
                   <span>Model id</span>
@@ -232,9 +230,6 @@ export function App() {
               <p className="quiet" id="model-help">
                 Only free models, whose ids end in <code>:free</code>, are allowed.
               </p>
-              <label className="check">
-                <input type="checkbox" checked={remember} onChange={(e) => changeKey(apiKey, e.target.checked)} /> Remember on this device
-              </label>
             </div>
           )}
 
