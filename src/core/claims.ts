@@ -27,6 +27,39 @@ const ABBREVIATIONS = new Set([
   "mrs",
   "ms",
   "st",
+  "jr",
+  "sr",
+  "mt",
+  "dept",
+  "univ",
+  "inc",
+  "ltd",
+  "co",
+  "corp",
+  "assn",
+  "ed",
+  "eds",
+  "est",
+  "viz",
+  "resp",
+  "sec",
+  "min",
+  "hr",
+  "hrs",
+  "sp",
+  "spp",
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "sept",
+  "oct",
+  "nov",
+  "dec",
 ]);
 
 // Citation markers that stay with the sentence before them: any bracket right
@@ -38,7 +71,18 @@ function isAbbreviation(textBeforeStop: string): boolean {
   if (!word) return false;
   // A single capital letter is an initial, as in "J. Doe".
   if (/^[A-Z]$/.test(word)) return true;
+  // Short letter groups joined by full stops: "J.A", "U.S", "Ph.D", "e.g".
+  if (/^(?:[A-Za-z]{1,3}\.)+[A-Za-z]{1,3}$/.test(word)) return true;
   return ABBREVIATIONS.has(word.toLowerCase());
+}
+
+/**
+ * Whether a word can open a sentence: a capital (any script), a digit, an
+ * opening quote or bracket, a Greek letter as in "\u03B2-blockers", or a
+ * lower-case word with a capital or digit inside, as in "mRNA" or "p53".
+ */
+function startsASentence(word: string): boolean {
+  return /^(?:[\p{Lu}\p{N}"'([\u201C\u2018]|\p{Script=Greek}|\p{Ll}+[\p{Lu}\p{N}])/u.test(word);
 }
 
 /** One sentence's offsets in the text it came from. */
@@ -85,10 +129,12 @@ export function sentenceSpans(text: string): SentenceSpan[] {
         let stop = i + 1;
         while (stop < pEnd && "\"')\u201D\u2019".includes(text[stop] ?? "")) stop += 1;
         const end = stop + (MARKER_RUN.exec(text.slice(stop, pEnd))?.[0].length ?? 0);
-        const next = /^\s+(\S)/.exec(text.slice(end, pEnd))?.[1];
+        const next = /^\s+(\S+)/.exec(text.slice(end, pEnd))?.[1];
         const boundary =
           next !== undefined &&
-          /[A-Z0-9"'([\u201C\u2018]/.test(next) &&
+          startsASentence(next) &&
+          // The last full stop of an ellipsis does not end a sentence.
+          !(ch === "." && text[i - 1] === ".") &&
           !(ch === "." && isAbbreviation(text.slice(start, i)));
         if (boundary) {
           const span = trimmedSpan(text, start, stop, end);

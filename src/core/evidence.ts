@@ -57,7 +57,13 @@ export function checkEvidence(quote: string, source: string): EvidenceCheck {
   if (q.length < MIN_EVIDENCE_LENGTH) {
     return { ok: false, reason: "too_short" };
   }
-  const s = normalizeForMatch(source);
+  // Normalise each paragraph on its own, so a paragraph break (after a heading,
+  // say) still ends a sentence for the splitter.
+  const s = source
+    .split(/\n\s*\n/)
+    .map(normalizeForMatch)
+    .filter((p) => p !== "")
+    .join("\n\n");
   const spans = sentenceSpans(s);
   const sentence = (k: number) => {
     const span = spans[k];
