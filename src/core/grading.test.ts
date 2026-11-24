@@ -6,6 +6,7 @@ import {
   judgeReply,
   parseModelReply,
   sanitizeReason,
+  sharesKeyWord,
   warningsFor,
 } from "./grading";
 
@@ -262,6 +263,14 @@ describe("student text and model steering", () => {
       warnings: [],
       discarded: { grade: "supported", evidence: quote },
     });
+  });
+
+  it("keeps a quote made of short words when it shares an acronym or is the claim itself", () => {
+    const sentence = "The BMI was low and the HDL was low in the men who ate no fat.";
+    expect(judgeReply(reply("supported", sentence), sentence, sentence).grade).toBe("supported");
+    expect(judgeReply(reply("supported", sentence), sentence, "Men had a low BMI.").grade).toBe("supported");
+    expect(sharesKeyWord("The BMI was low.", "It is not so.")).toBe(false);
+    expect(sharesKeyWord("The BMI was low.", "The HDL was low.")).toBe(false);
   });
 
   it("keeps a grade whose quote shares a key word with the claim", () => {

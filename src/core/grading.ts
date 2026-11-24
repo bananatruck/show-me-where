@@ -250,11 +250,17 @@ const STOP_WORDS = new Set(
   ),
 );
 
-/** Key words: four or more letters, not a common word, compared by their first five letters. */
+/**
+ * Key words: four or more letters and not a common word, compared by their
+ * first five letters; also acronyms and numbers of two or more characters,
+ * such as "BMI", "HDL" or "53", compared whole.
+ */
 function keyWords(text: string): Set<string> {
   const out = new Set<string>();
-  for (const word of normalizeForMatch(text).toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
-    if (word.length >= 4 && !STOP_WORDS.has(word)) out.add(word.slice(0, 5));
+  for (const word of normalizeForMatch(text).match(/[\p{L}\p{N}]+/gu) ?? []) {
+    const lower = word.toLowerCase();
+    if (lower.length >= 4 && !STOP_WORDS.has(lower)) out.add(lower.slice(0, 5));
+    else if (/^[\p{Lu}\p{N}]{2,}$/u.test(word)) out.add(lower);
   }
   return out;
 }
@@ -265,6 +271,7 @@ function keyWords(text: string): Set<string> {
  * text into quoting an unrelated sentence of the source.
  */
 export function sharesKeyWord(claim: string, evidence: string): boolean {
+  if (normalizeForMatch(claim) === normalizeForMatch(evidence)) return true;
   const claimWords = keyWords(claim);
   for (const word of keyWords(evidence)) if (claimWords.has(word)) return true;
   return false;
