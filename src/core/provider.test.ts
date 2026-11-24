@@ -72,7 +72,7 @@ describe("createOpenRouterProvider", () => {
 
   it("refuses a model id that does not end in :free", () => {
     expect(() =>
-      createOpenRouterProvider({ apiKey: "k", model: "openai/gpt-sol", fetchImpl: fetch }),
+      createOpenRouterProvider({ apiKey: "k", model: "vendor/paid-model", fetchImpl: fetch }),
     ).toThrow(/:free/);
   });
 
