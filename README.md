@@ -1,17 +1,19 @@
-# Claim Check
+# Show Me Where
 
-Paste a paragraph that cites sources, and Claim Check grades each cited claim against the cited source, showing the exact source sentence behind every grade.
-If the model's quoted sentence cannot be found word for word in the source, the app throws the grade away and says "cannot tell".
+Paste a paragraph that cites sources, and Show Me Where checks each cited claim against the cited source, showing the exact source sentence behind every grade.
+If the model's quote is not a whole sentence found word for word in the source, the app throws the grade away and says "cannot tell".
 
 Built for SLAY HACKS 2026.
-The full design is in [SPEC.md](SPEC.md).
+The full design is in [SPEC.md](SPEC.md), and the submission text is in [submission/DEVPOST.md](submission/DEVPOST.md).
+
+![Results with the verified sentence highlighted in its context](docs/screenshots/desktop-3-results.jpg)
 
 ## Status
 
-This is the walking skeleton: the plain page, the parsing, the evidence check, the provider interface, and the sample run all work and are tested.
-The visual design is not done yet.
-The sample run is a hand-written synthetic example, and the app says so on screen.
-The live model call is written against the documented OpenRouter API and tested only against a recorded-response fake; it has not yet been run with a real key.
+- The sample run works end to end with no key, and is labelled on screen as a synthetic, hand-written example.
+- Live mode is built: citation parsing, source fetching from Europe PMC and OpenAlex, the OpenRouter call, and every check.
+- The live model call has been tested only against a recorded HTTP 401 reply and a hand-written reply in the documented response shape. It has not yet run with a real key. Until it has, nothing in this repository claims a real model result.
+- Not yet deployed. It is a static site, so it can be deployed to GitHub Pages as it is.
 
 ## Run it
 
@@ -26,24 +28,67 @@ pnpm typecheck
 pnpm build      # static files in dist/
 ```
 
+For a live run you need an OpenRouter key.
+Only free models, whose ids end in `:free`, are accepted.
+
 ## How it works
 
-1. The text is split into body and reference list at a `References` heading.
-2. Each sentence with a numeric citation such as `[1]` or `[2, 3]` becomes a claim; sentences without one are listed as not checked.
-3. For each cited reference with a DOI, the abstract is fetched from OpenAlex; any other source text is pasted by the user.
-4. Each claim is sent with one source's text to a free OpenRouter model, which must answer with a grade, one quoted sentence, and a reason.
-5. The app keeps the grade only if the quoted sentence occurs in the source text after normalising quotes, dashes and whitespace.
+1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
+2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
+3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named.
+4. When citations sit at different points in a sentence, each source is checked against the part of the sentence its citation follows.
+5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
+6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
+7. The app keeps a grade only if the quote is one or more whole sentences found in the source text. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
+8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
+9. If one source backs a claim and another contradicts it, the claim reads "Sources disagree".
 
-## What leaves the browser
+## What it does not do
 
-In the sample run, nothing.
-In a live run, each DOI goes to OpenAlex (`api.openalex.org`), and each claim with its source text goes to OpenRouter (`openrouter.ai`) under your own key.
-Your key is stored only in this browser: session storage by default, local storage if you tick "remember on this device".
-No proxy and no server of ours is involved.
-Only OpenRouter model ids ending in `:free` are accepted.
+- It does not decide whether a quote really backs a claim. That is the model's reading, and the page says so beside every quote.
+- It does not read paywalled papers, PDFs, or web pages. Paste their text instead.
+- It does not support citation styles other than numbered and APA author-year.
+- It does not judge whether a source is trustworthy.
+- Its prompt-injection defences (a per-call random fence around the source, the rules repeated after it, links stripped from reasons) lower the risk from hostile source text but do not remove it.
 
-## Limits
+## Outside services it calls
 
-Only numeric bracket citations are supported for now.
-An abstract often does not cover a claim, so many claims end at "cannot tell" until full-text sources are added.
-Sources without a DOI must be pasted, because most websites block reading from another site's page.
+In the sample run, none.
+In a live run, and only then:
+
+| Service | What is sent | Why |
+|---|---|---|
+| Europe PMC REST API (`www.ebi.ac.uk/europepmc/webservices/rest`) | The DOI | Find and read open-access full text |
+| OpenAlex (`api.openalex.org`) | The DOI | Read the abstract when there is no open-access full text |
+| OpenRouter (`openrouter.ai/api/v1/chat/completions`) | Each claim and its source text, with your key | Ask a free model for its reading |
+
+Your key is stored only in this browser: session storage by default, local storage if you tick "Remember on this device".
+There is no server, proxy, or analytics of ours.
+Fonts are bundled with the app, so no font service is called.
+
+## Third-party code and licences
+
+| What | Source | Licence | How it is used |
+|---|---|---|---|
+| Highlighter component | Magic UI, `apps/www/registry/magicui/highlighter.tsx` | MIT | Adapted in `src/ui/Highlighter.tsx` with the notice kept; draws the highlighter stroke behind the verified quote |
+| rough-notation 0.5.1 | npm | MIT | Draws the stroke for the highlighter |
+| Atkinson Hyperlegible | `@fontsource/atkinson-hyperlegible` | SIL OFL 1.1 | Interface typeface, bundled |
+| Source Serif 4 | `@fontsource/source-serif-4` | SIL OFL 1.1 | Typeface for student text and source passages, bundled |
+| React, Vite, Vitest, ESLint, TypeScript | npm | MIT or Apache-2.0 | Framework and tooling |
+
+Considered and not used:
+
+- React Bits: its licence is "MIT + Commons Clause" and forbids redistributing the components themselves, and this repository is public.
+- Kesh's Forge organisation: a search for matching components returned none that fit.
+- 21st.dev: not used; the one component this design needed came from Magic UI.
+
+## Screenshots
+
+All screenshots are from a local build in Chrome, at 1440 or 390 CSS pixels wide, and are in [docs/screenshots](docs/screenshots).
+The sample screens show the synthetic example.
+The live-mode error screens used a placeholder key that is not a real key.
+The mock-ups the design started from are in [design/mockups](design/mockups).
+
+## How it was built
+
+Kesh directed AI coding agents, which wrote the specification, the code, and the tests.
