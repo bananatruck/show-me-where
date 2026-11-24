@@ -146,7 +146,8 @@ export function sanitizeReason(reason: string): string {
     .trim();
 }
 
-const NUMBER = /\d+(?:[.,]\d+)?%?/g;
+// A whole number token: digits with any run of grouping or decimal parts ("1,234,500", "12.5"), and an optional "%".
+const NUMBER = /\d+(?:[.,]\d+)*%?/g;
 const NEGATIONS = ["not", "no", "never", "neither", "nor", "without", "cannot", "none"];
 const HEDGES = [
   "associated with",

@@ -141,6 +141,14 @@ describe("warningsFor", () => {
     ]);
   });
 
+  it("reads a grouped number as one number", () => {
+    expect(warningsFor("The trial enrolled 500 patients.", "The trial enrolled 1,234,500 patients.")).toEqual([
+      "The claim says 500, which is not in the quoted sentence.",
+    ]);
+    expect(warningsFor("The trial enrolled 1,234,500 patients.", "It enrolled 1,234,500 patients.")).toEqual([]);
+    expect(warningsFor("Rates rose 12.5%.", "Rates rose 12.5% overall.")).toEqual([]);
+  });
+
   it("flags a negation in the quote that the claim does not have", () => {
     expect(warningsFor("Older students improved.", "Older students did not improve.")).toEqual([
       'The quoted sentence says "not" and the claim does not.',
