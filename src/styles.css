@@ -12,6 +12,8 @@
   --ink: #1b2333;
   --ink-soft: #4a566b;
   --rule: #c9d3de;
+  /* Borders of inputs, toggles and chips: at least 3:1 against surface and paper. */
+  --control-border: #7b879a;
   --highlight: #ffe45c;
   --highlight-ink: #1b2333;
   --focus: #2457c5;
@@ -36,6 +38,7 @@
   --ink: #e6ebf2;
   --ink-soft: #a9b4c4;
   --rule: #2c3747;
+  --control-border: #6b7a90;
   --highlight: #7a6512;
   --highlight-ink: #fff8d6;
   --focus: #8ab4ff;
@@ -125,7 +128,7 @@ body {
 
 .theme-toggle {
   background: none;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   color: var(--ink);
   border-radius: 999px;
   padding: 0.35rem 0.9rem;
@@ -159,7 +162,7 @@ body {
 
 .segmented {
   display: inline-flex;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: 999px;
   padding: 0.2rem;
   margin: 0 0 1rem;
@@ -221,7 +224,7 @@ body {
   font: inherit;
   color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: 4px;
   padding: 0.55rem 0.7rem;
 }
@@ -290,7 +293,7 @@ body {
   display: inline-block;
   font-family: var(--sans);
   font-size: var(--step--1);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: 999px;
   padding: 0 0.6rem;
   margin-left: 0.4rem;
