@@ -30,6 +30,17 @@ describe("splitSentences", () => {
     expect(splitSentences("It rose.[1] Then fell [2].")).toEqual(["It rose.[1]", "Then fell [2]."]);
   });
 
+  it("keeps a numeric marker separated from the full stop by a space with its sentence", () => {
+    expect(splitSentences("It rose. [1] Then fell [2].")).toEqual(["It rose. [1]", "Then fell [2]."]);
+  });
+
+  it("does not attach a bracketed word to the previous sentence", () => {
+    expect(splitSentences("See below. [Table 1] shows the data.")).toEqual([
+      "See below.",
+      "[Table 1] shows the data.",
+    ]);
+  });
+
   it("always splits at a blank line", () => {
     expect(splitSentences("A heading\n\nThe text.")).toEqual(["A heading", "The text."]);
   });
