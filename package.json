@@ -13,8 +13,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "rough-notation": "^0.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

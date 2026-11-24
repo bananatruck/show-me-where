@@ -3,7 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Claim Check</title>
+    <meta name="description" content="Check whether your sources say what your sentences say, with the source sentence shown for every grade." />
+    <title>Show Me Where</title>
+    <script>
+      // Apply the saved or system theme before first paint.
+      (function () {
+        var theme = null;
+        try {
+          theme = localStorage.getItem("show-me-where.theme");
+        } catch (e) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
