@@ -295,16 +295,12 @@ export function extractClaims(
   const uncited: string[] = [];
   const unresolved: string[] = [];
   for (const sentence of splitSentences(body)) {
-    let citations: Citation[];
-    if (style === "numeric") {
-      const found = findNumericCitations(sentence, known);
-      citations = found.citations;
-      unresolved.push(...found.unresolved);
-    } else {
-      const found = findAuthorYearCitations(sentence, references);
-      citations = found.citations;
-      unresolved.push(...found.unresolved);
-    }
+    const found =
+      style === "numeric"
+        ? findNumericCitations(sentence, known)
+        : findAuthorYearCitations(sentence, references);
+    const citations: Citation[] = found.citations;
+    unresolved.push(...found.unresolved);
     if (citations.length === 0) {
       uncited.push(sentence);
       continue;
@@ -316,6 +312,7 @@ export function extractClaims(
       sentence,
       refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
       scopes: scopesFor(sentence, citations, text),
+      unresolved: [...new Set(found.unresolved)],
     });
   }
   return { claims, uncited, unresolved: [...new Set(unresolved)] };

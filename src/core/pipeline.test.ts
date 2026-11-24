@@ -115,6 +115,24 @@ describe("runCheck", () => {
     }
   });
 
+  it("never shows a backing headline for a claim that also cites a reference that is not in the list", async () => {
+    const analysis = analyzeText("Mortality fell by 50% [1, 3].\nReferences\n[1] One.\n[2] Two.");
+    expect(analysis.claims[0]?.unresolved).toEqual(["[3]"]);
+    const provider: ModelProvider = {
+      label: "spy",
+      async complete() {
+        return JSON.stringify({ grade: "supported", evidence: "Mortality fell by 50% in the trial.", reason: "r" });
+      },
+    };
+    const report = await runCheck(
+      analysis,
+      { 1: { status: "ok", text: "Mortality fell by 50% in the trial.", origin: "pasted" } },
+      provider,
+    );
+    expect(report.results[0]?.perSource.map((p) => p.judgement.grade)).toEqual(["supported"]);
+    expect(report.results[0]?.headline).toBe("not_every_source_backs_it");
+  });
+
   it("does not call the model for an unreachable source", async () => {
     const analysis = analyzeText("A [1].\nReferences\n[1] X.");
     const calls: string[] = [];

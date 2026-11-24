@@ -99,7 +99,12 @@ export async function runCheck(
     }
     results.push({
       claim,
-      headline: headlineGrade(perSource.map((p) => p.judgement.grade)),
+      // A cited reference that is not in the list counts as a source that could
+      // not be read, so it can never sit silently behind a backing headline.
+      headline: headlineGrade([
+        ...perSource.map((p) => p.judgement.grade),
+        ...claim.unresolved.map((): Grade => "source_not_reachable"),
+      ]),
       perSource,
     });
   }

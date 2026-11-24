@@ -214,4 +214,37 @@ describe("App", () => {
     );
     expect(first?.querySelector(".passage")?.textContent).toContain("End of quote.");
   });
+
+  it("names a cited reference that is not in the list beside the claim's result", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  grade: "supported",
+                  evidence: "Mortality fell by 50% in the trial.",
+                  reason: "Same figure.",
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    render(<App />);
+    goLive("Mortality fell by 50% [1, 3].\nReferences\n[1] One.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "Mortality fell by 50% in the trial." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const results = await screen.findByRole("list", { name: "Results" });
+    const item = results.children[0];
+    expect(item?.getAttribute("data-grade")).toBe("not_every_source_backs_it");
+    expect(item?.textContent).toContain("Also cited but not in your reference list, so not checked: [3].");
+  });
 });

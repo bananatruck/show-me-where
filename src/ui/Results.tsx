@@ -154,6 +154,11 @@ function ResultItem({
           />
         ))}
       </ul>
+      {claim.unresolved.length > 0 && (
+        <p className="reading-note">
+          Also cited but not in your reference list, so not checked: {claim.unresolved.join(", ")}.
+        </p>
+      )}
     </li>
   );
 }

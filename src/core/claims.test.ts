@@ -109,6 +109,7 @@ describe("extractClaims", () => {
           sentence: "Sleep improves memory [1].",
           refs: [1],
           scopes: { 1: "Sleep improves memory." },
+          unresolved: [],
         },
         {
           id: "c2",
@@ -116,6 +117,7 @@ describe("extractClaims", () => {
           sentence: "Naps help too [2, 3].",
           refs: [2, 3],
           scopes: { 2: "Naps help too.", 3: "Naps help too." },
+          unresolved: [],
         },
       ],
       uncited: ["This matters for students."],
@@ -196,6 +198,7 @@ describe("extractClaims", () => {
           sentence: "Smith and Jones (2020) found that sleep improves memory.",
           refs: [1],
           scopes: { 1: "Smith and Jones (2020) found that sleep improves memory." },
+          unresolved: [],
         },
         {
           id: "c2",
@@ -203,6 +206,7 @@ describe("extractClaims", () => {
           sentence: "Naps also help recall (Lee et al., 2019, p. 4; Smith & Jones, 2020).",
           refs: [1, 2],
           scopes: { 1: "Naps also help recall.", 2: "Naps also help recall." },
+          unresolved: [],
         },
       ],
       uncited: ["Caffeine hurts sleep (Brown, 2018)."],
