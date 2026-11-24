@@ -137,14 +137,30 @@ const NARRATIVE = new RegExp(
 );
 const NAME_WORD_START = new RegExp(NAME_WORD, "gu");
 
+/** Words that can open a sentence before a narrative citation, as in "Recently Brown (2018)". */
+const LEAD_INS = new Set(
+  "recently however also similarly likewise later earlier previously moreover furthermore notably additionally thus hence indeed conversely finally first second third then still yet in by for".split(
+    " ",
+  ),
+);
+
 /**
  * Offsets inside a narrative author run where a reading could start, longest
- * reading first: "Recently van der Berg" gives "Recently van der Berg", then
- * "van der Berg", then "Berg".
+ * first. Only opening words such as "Recently" may be dropped, so part of a
+ * compound surname ("Garc\u00EDa M\u00E1rquez") is never dropped to reach a
+ * different author.
  */
 function readingStarts(run: string): number[] {
   const firstGroup = run.split(/\s+(?:&|and)\s+|\s+et al\./)[0] ?? run;
-  return [...firstGroup.matchAll(NAME_WORD_START)].map((m) => m.index);
+  return [...firstGroup.matchAll(NAME_WORD_START)]
+    .map((m) => m.index)
+    .filter((offset) =>
+      run
+        .slice(0, offset)
+        .split(/\s+/)
+        .filter(Boolean)
+        .every((word) => LEAD_INS.has(word.toLowerCase())),
+    );
 }
 
 /**

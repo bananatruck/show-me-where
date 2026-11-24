@@ -218,3 +218,19 @@ describe("reference entries and author counts", () => {
     });
   });
 });
+
+describe("narrative readings", () => {
+  it("does not drop part of a compound surname to reach a different author", () => {
+    const refs = parseAuthorYearReferences("Márquez, A. (2020). Another author.");
+    expect(findAuthorYearCitations("García Márquez (2020) found it.", refs)).toEqual({
+      citations: [],
+      unresolved: ["García Márquez, 2020"],
+    });
+  });
+
+  it("still drops an opening word such as Recently or However", () => {
+    const refs = parseAuthorYearReferences("Brown, K. (2018). A study.");
+    expect(findAuthorYearCitations("However, Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
+    expect(findAuthorYearCitations("Recently Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
+  });
+});
