@@ -13,7 +13,10 @@ export interface Citation {
 const YEAR = String.raw`(?:\d{4}[a-z]?|n\.d\.)`;
 const YEAR_ONLY = new RegExp(`^${YEAR}$`);
 const ENTRY_START = new RegExp(String.raw`^(\S[^(]*?)\s*\(\s*(${YEAR})\s*\)`);
-const INITIALS = /^(?:[A-Z]\.(?:\s*-?\s*[A-Z]\.)*|Jr\.?|Sr\.?|\.\.\.|\u2026)$/;
+const INITIALS = /^(?:\p{Lu}\.(?:\s*-?\s*\p{Lu}\.)*|Jr\.?|Sr\.?|\.\.\.|\u2026)$/u;
+/** Lowercase surname particles, as in "van der Berg" or "de la Cruz". */
+const PARTICLE = String.raw`(?:van|von|der|den|de|del|della|di|da|du|la|le|ter|ten|dos|das)`;
+const STARTS_LIKE_A_NAME = new RegExp(String.raw`^(?:${PARTICLE}\s+)*\p{Lu}`, "u");
 const PAGES = /^(?:pp?\.|para\.|chap\.)\s*\S+$/;
 const PREFIX = /^(?:e\.g\.,?|i\.e\.,?|see(?:\s+also)?|cf\.|also)\s+/i;
 
@@ -80,7 +83,7 @@ interface CitedGroup {
 
 function readAuthors(text: string): CitedGroup | null {
   const authors = text.replace(PREFIX, "").trim();
-  if (!/^\p{Lu}/u.test(authors) || authors.split(/\s+/).length > 8) return null;
+  if (!STARTS_LIKE_A_NAME.test(authors) || authors.split(/\s+/).length > 8) return null;
   const etAl = /\s+et al\.?$/.test(authors);
   const names = authors.replace(/\s+et al\.?$/, "").split(/\s+(?:&|and)\s+/);
   const [first, second] = names;
@@ -120,10 +123,25 @@ function readPart(part: string): { group: CitedGroup; years: string[] } | null {
 }
 
 const PARENTHETICAL = /\s*\(([^()]+)\)/g;
+// A name word: optional lowercase particles, then a capitalised word.
+const NAME_WORD = String.raw`(?:${PARTICLE}\s+)*\p{Lu}[\p{L}'\-]+`;
+// Up to six name words, so group names such as "World Health Organization" fit.
+const NAME_RUN = String.raw`${NAME_WORD}(?:\s+${NAME_WORD}){0,5}`;
 const NARRATIVE = new RegExp(
-  String.raw`(\p{Lu}[\p{L}'\-]+(?:\s+(?:&|and)\s+\p{Lu}[\p{L}'\-]+|\s+et al\.)?)\s+\((${YEAR})(?:,\s*pp?\.\s*[^)]+)?\)`,
+  String.raw`(${NAME_RUN}(?:\s+(?:&|and)\s+${NAME_RUN}|\s+et al\.)?)\s+\((${YEAR})(?:,\s*pp?\.\s*[^)]+)?\)`,
   "gu",
 );
+const NAME_WORD_START = new RegExp(NAME_WORD, "gu");
+
+/**
+ * Offsets inside a narrative author run where a reading could start, longest
+ * reading first: "Recently van der Berg" gives "Recently van der Berg", then
+ * "van der Berg", then "Berg".
+ */
+function readingStarts(run: string): number[] {
+  const firstGroup = run.split(/\s+(?:&|and)\s+|\s+et al\./)[0] ?? run;
+  return [...firstGroup.matchAll(NAME_WORD_START)].map((m) => m.index);
+}
 
 /**
  * Finds APA in-text citations, parenthetical and narrative, and resolves each
@@ -138,10 +156,29 @@ export function findAuthorYearCitations(
   const unresolved: string[] = [];
 
   for (const match of sentence.matchAll(NARRATIVE)) {
-    const group = readAuthors(match[1] ?? "");
-    const ref = group ? resolve(group, match[2] ?? "", refs) : null;
-    if (ref !== null) {
-      citations.push({ start: match.index, end: match.index + match[0].length, refs: [ref], narrative: true });
+    const run = match[1] ?? "";
+    const year = match[2] ?? "";
+    const starts = readingStarts(run);
+    let found = false;
+    // The run can begin with an ordinary capitalised word such as "Recently",
+    // so try each reading from the longest down and keep the first that resolves.
+    for (const offset of starts) {
+      const group = readAuthors(run.slice(offset));
+      const ref = group ? resolve(group, year, refs) : null;
+      if (ref !== null) {
+        citations.push({
+          start: match.index + offset,
+          end: match.index + match[0].length,
+          refs: [ref],
+          narrative: true,
+        });
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      const shortest = readAuthors(run.slice(starts.at(-1) ?? 0));
+      if (shortest) unresolved.push(`${shortest.authors}, ${year}`);
     }
   }
 

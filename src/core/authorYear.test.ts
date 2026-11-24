@@ -133,3 +133,51 @@ describe("matchKey", () => {
     expect(matchKey("M\u00FCller")).toBe(matchKey("muller"));
   });
 });
+
+describe("names the first version missed", () => {
+  const refs = parseAuthorYearReferences(
+    [
+      "Garc\u00EDa, \u00C1., & L\u00F3pez, B. (2020). Accented initials.",
+      "van der Berg, P. (2020). A particle surname.",
+      "World Health Organization. (2021). Sleep guidance.",
+      "de la Cruz, M., Ortiz, N., & Ruiz, O. (2019). Three authors.",
+    ].join("\n"),
+  );
+
+  it("drops accented initials from surnames", () => {
+    expect(surnamesOf("Garc\u00EDa, \u00C1., & L\u00F3pez, B.")).toEqual(["Garc\u00EDa", "L\u00F3pez"]);
+    expect(findAuthorYearCitations("It held (Garc\u00EDa & L\u00F3pez, 2020).", refs).citations[0]?.refs).toEqual([1]);
+  });
+
+  it("reads a surname that starts with a lowercase particle", () => {
+    expect(findAuthorYearCitations("It held (van der Berg, 2020).", refs).citations[0]?.refs).toEqual([2]);
+    expect(findAuthorYearCitations("It held (de la Cruz et al., 2019).", refs).citations[0]?.refs).toEqual([4]);
+  });
+
+  it("reads a narrative citation by a group author, with the whole name in the span", () => {
+    const sentence = "World Health Organization (2021) recommends more sleep.";
+    expect(findAuthorYearCitations(sentence, refs).citations).toEqual([
+      { start: 0, end: 32, refs: [3], narrative: true },
+    ]);
+  });
+
+  it("reads a narrative citation after a capitalised opening word", () => {
+    const { citations } = findAuthorYearCitations("Recently van der Berg (2020) showed it.", refs);
+    expect(citations).toEqual([{ start: 9, end: 28, refs: [2], narrative: true }]);
+  });
+
+  it("reports a narrative citation that is not in the reference list", () => {
+    expect(findAuthorYearCitations("Recently Brown (2018) found an increase.", refs)).toEqual({
+      citations: [],
+      unresolved: ["Brown, 2018"],
+    });
+  });
+
+  it("still ignores parentheses that are not citations", () => {
+    expect(findAuthorYearCitations("In spring (in 2020) it rose (n = 40).", refs)).toEqual({
+      citations: [],
+      unresolved: [],
+    });
+  });
+});
+
