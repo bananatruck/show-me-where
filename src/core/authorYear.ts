@@ -13,7 +13,7 @@ export interface Citation {
 const YEAR = String.raw`(?:\d{4}[a-z]?|n\.d\.)`;
 const YEAR_ONLY = new RegExp(`^${YEAR}$`);
 const ENTRY_START = new RegExp(String.raw`^(\S[^(]*?)\s*\(\s*(${YEAR})\s*\)`);
-const INITIALS = /^(?:[A-Z]\.(?:\s*-?\s*[A-Z]\.)*|Jr\.?|Sr\.?|\.\.\.|…)$/;
+const INITIALS = /^(?:[A-Z]\.(?:\s*-?\s*[A-Z]\.)*|Jr\.?|Sr\.?|\.\.\.|\u2026)$/;
 const PAGES = /^(?:pp?\.|para\.|chap\.)\s*\S+$/;
 const PREFIX = /^(?:e\.g\.,?|i\.e\.,?|see(?:\s+also)?|cf\.|also)\s+/i;
 

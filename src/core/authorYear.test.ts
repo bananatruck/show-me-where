@@ -13,7 +13,7 @@ const LIST = [
   "    Memory Journal, 4, 10-20.",
   "Lee, C., Park, D., & Kim, E. (2019b). A second paper by the same team.",
   "World Health Organization. (2021). Sleep guidance. https://example.org/who",
-  "Müller, F. (n.d.). Undated report.",
+  "M\u00FCller, F. (n.d.). Undated report.",
 ].join("\n");
 
 describe("surnamesOf", () => {
@@ -26,8 +26,8 @@ describe("surnamesOf", () => {
   });
 
   it("keeps hyphenated and particle surnames", () => {
-    expect(surnamesOf("García-López, M., & van der Berg, P.")).toEqual([
-      "García-López",
+    expect(surnamesOf("Garc\u00EDa-L\u00F3pez, M., & van der Berg, P.")).toEqual([
+      "Garc\u00EDa-L\u00F3pez",
       "van der Berg",
     ]);
   });
@@ -56,7 +56,7 @@ describe("parseAuthorYearReferences", () => {
       year: "2021",
       label: "World Health Organization, 2021",
     });
-    expect(refs[4]).toMatchObject({ authors: ["Müller"], year: "n.d." });
+    expect(refs[4]).toMatchObject({ authors: ["M\u00FCller"], year: "n.d." });
   });
 });
 
@@ -130,6 +130,6 @@ describe("findAuthorYearCitations", () => {
 
 describe("matchKey", () => {
   it("folds case and accents", () => {
-    expect(matchKey("Müller")).toBe(matchKey("muller"));
+    expect(matchKey("M\u00FCller")).toBe(matchKey("muller"));
   });
 });
