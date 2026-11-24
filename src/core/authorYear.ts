@@ -12,7 +12,10 @@ export interface Citation {
 
 const YEAR = String.raw`(?:\d{4}[a-z]?|n\.d\.)`;
 const YEAR_ONLY = new RegExp(`^${YEAR}$`);
-const ENTRY_START = new RegExp(String.raw`^(\S[^(]*?)\s*\(\s*(${YEAR})\s*\)`);
+// Authors, an optional "(Ed.)" or "(Eds.)" marker, then "(year)" or a full date "(2020, May 14)".
+const ENTRY_START = new RegExp(
+  String.raw`^(\S[^(]*?)(?:\s*\((?:Eds?|Trans|Comp)\.?\)\.?)?\s*\(\s*(${YEAR})(?:,\s*[^)]*)?\s*\)`,
+);
 const INITIALS = /^(?:\p{Lu}\.(?:\s*-?\s*\p{Lu}\.)*|Jr\.?|Sr\.?|\.\.\.|\u2026)$/u;
 /** Lowercase surname particles, as in "van der Berg" or "de la Cruz". */
 const PARTICLE = String.raw`(?:van|von|der|den|de|del|della|di|da|du|la|le|ter|ten|dos|das)`;
@@ -93,15 +96,16 @@ function readAuthors(text: string): CitedGroup | null {
 
 /** Resolves one cited author group and year to exactly one reference, or null. */
 function resolve(group: CitedGroup, year: string, refs: readonly Reference[]): number | null {
-  let candidates = refs.filter(
+  // APA names one author alone, two with "&", and three or more with "et al.";
+  // the author count must agree so a citation never lands on a different work.
+  const count = group.etAl ? (n: number) => n >= 3 : group.second !== null ? (n: number) => n === 2 : (n: number) => n === 1;
+  const candidates = refs.filter(
     (r) =>
       r.year === year &&
+      count(r.authors.length) &&
       matchKey(r.authors[0] ?? "") === matchKey(group.first) &&
       (group.second === null || matchKey(r.authors[1] ?? "") === matchKey(group.second)),
   );
-  if (candidates.length > 1 && group.second === null && !group.etAl) {
-    candidates = candidates.filter((r) => r.authors.length === 1);
-  }
   return candidates.length === 1 ? (candidates[0]?.number ?? null) : null;
 }
 

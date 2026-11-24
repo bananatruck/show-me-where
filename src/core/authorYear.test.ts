@@ -181,3 +181,40 @@ describe("names the first version missed", () => {
   });
 });
 
+
+describe("reference entries and author counts", () => {
+  it("starts a new entry at an editor marker or a full date, so no DOI moves to the entry above", () => {
+    const refs = parseAuthorYearReferences(
+      [
+        "Alder, M. (2025). Unrelated book without a DOI.",
+        "Smith, J. (Ed.). (2020). Edited volume on vaccines. https://doi.org/10.1000/vaccine",
+        "Brown, K., & Gray, L. (Eds.). (2019b). Another edited volume.",
+        "Lane, P. (2020, May 14). News article. https://doi.org/10.1000/news",
+      ].join("\n"),
+    );
+    expect(refs.map((r) => [r.authors, r.year, r.doi])).toEqual([
+      [["Alder"], "2025", null],
+      [["Smith"], "2020", "10.1000/vaccine"],
+      [["Brown", "Gray"], "2019b", null],
+      [["Lane"], "2020", "10.1000/news"],
+    ]);
+  });
+
+  it("matches a two-name citation to the two-author entry, not the three-author one", () => {
+    const refs = parseAuthorYearReferences(
+      ["Smith, A., & Jones, B. (2020). Two authors.", "Smith, A., Jones, B., & Lee, C. (2020). Three authors."].join(
+        "\n",
+      ),
+    );
+    expect(findAuthorYearCitations("It held (Smith & Jones, 2020).", refs).citations[0]?.refs).toEqual([1]);
+    expect(findAuthorYearCitations("It held (Smith et al., 2020).", refs).citations[0]?.refs).toEqual([2]);
+  });
+
+  it("does not match et al. to a single-author entry", () => {
+    const refs = parseAuthorYearReferences("Smith, A. (2020). Single author.");
+    expect(findAuthorYearCitations("It held (Smith et al., 2020).", refs)).toEqual({
+      citations: [],
+      unresolved: ["Smith et al., 2020"],
+    });
+  });
+});
