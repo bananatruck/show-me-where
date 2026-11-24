@@ -221,10 +221,10 @@ describe("reference entries and author counts", () => {
 
 describe("narrative readings", () => {
   it("does not drop part of a compound surname to reach a different author", () => {
-    const refs = parseAuthorYearReferences("Márquez, A. (2020). Another author.");
-    expect(findAuthorYearCitations("García Márquez (2020) found it.", refs)).toEqual({
+    const refs = parseAuthorYearReferences("M\u00E1rquez, A. (2020). Another author.");
+    expect(findAuthorYearCitations("Garc\u00EDa M\u00E1rquez (2020) found it.", refs)).toEqual({
       citations: [],
-      unresolved: ["García Márquez, 2020"],
+      unresolved: ["Garc\u00EDa M\u00E1rquez, 2020"],
     });
   });
 
