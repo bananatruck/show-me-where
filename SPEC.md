@@ -82,11 +82,13 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
-Narrative citations, a single citation group, a reference cited twice, and parts shorter than three words fall back to the whole sentence.
+The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however", the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
+Narrative citations, a single citation group, a reference cited twice, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
 The model always sees the whole sentence for context and the part it is asked to grade.
 A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
 When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
 When no source backs the claim, the headline is the best evidenced of the rest.
+A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
 So a contradicting or unchecked source is never hidden behind a supporting one.
 
 ## Getting the source text, and the CORS decision
@@ -124,7 +126,8 @@ For any grade other than `cannot_tell`, the quote must be one or more whole sent
 "Occur" means a literal substring match after only these normalisations, applied to both sides: Unicode NFC (not NFKC, which would turn a superscript 10 to the sixth into 106), typographic ligatures expanded, soft hyphens and zero-width characters removed, curly quotes made straight, all dash and hyphen variants made plain hyphens, and runs of whitespace made one space; one pair of quotation marks around the whole quote is ignored.
 The match is case sensitive, and no other fuzzy matching is allowed.
 A quote shorter than 20 characters after normalisation is rejected.
-A quote that shares no key word with the claim (a word of four or more letters that is not a common word, compared by its first five letters) is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+A quote that shares no key word with the claim is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes.
 The model's reason, and any discarded quote, are shown as the model's words, with links (with or without a scheme) removed and the length capped at 280 characters.
 A source with no text gives "source not reachable" without calling the model.
 A failed model call (rate limit, network, server error) gives "check failed", never a grade and never "cannot tell"; a rejected key stops the run with a message.
