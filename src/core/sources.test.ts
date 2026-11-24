@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { FetchLike } from "./types";
-import { rebuildAbstract, openAlexWorkUrl, fetchSourceByDoi } from "./sources";
+import type { FetchLike, SourceText } from "./types";
+import { rebuildAbstract, openAlexWorkUrl, fetchSourceByDoi, lookupDoi } from "./sources";
 
 describe("sources", () => {
   it("rebuildAbstract orders words by position", () => {
@@ -15,8 +15,8 @@ describe("sources", () => {
     );
   });
 
-  it("rebuildAbstract skips gaps without double spaces", () => {
-    expect(rebuildAbstract({ last: [9], first: [2] })).toBe("first last");
+  it("rebuildAbstract marks missing positions so a quote cannot span them", () => {
+    expect(rebuildAbstract({ last: [9], first: [2], second: [3] })).toBe("first second [...] last");
   });
 
   it("rebuildAbstract returns empty string for empty index", () => {
@@ -99,6 +99,41 @@ describe("sources", () => {
     expect(await fetchSourceByDoi("10.1234/unreadable", fakeFetch)).toEqual({
       status: "unreachable",
       reason: "OpenAlex sent a reply that could not be read. Paste the source text instead.",
+    });
+  });
+});
+
+describe("lookupDoi", () => {
+  const fullText: SourceText = { status: "ok", text: "Full text.", origin: "europepmc" };
+  const abstract: SourceText = { status: "ok", text: "Abstract.", origin: "openalex" };
+
+  it("prefers open-access full text and does not ask for the abstract", async () => {
+    const asked: string[] = [];
+    const result = await lookupDoi("10.1/x", {
+      fullText: async (doi) => (asked.push(`full ${doi}`), fullText),
+      abstract: async (doi) => (asked.push(`abstract ${doi}`), abstract),
+    });
+    expect(result).toEqual(fullText);
+    expect(asked).toEqual(["full 10.1/x"]);
+  });
+
+  it("falls back to the abstract when there is no full text", async () => {
+    const result = await lookupDoi("10.1/x", {
+      fullText: async () => ({ status: "unreachable", reason: "No full text." }),
+      abstract: async () => abstract,
+    });
+    expect(result).toEqual(abstract);
+  });
+
+  it("gives both reasons when neither is available", async () => {
+    const result = await lookupDoi("10.1/x", {
+      fullText: async () => ({ status: "unreachable", reason: "Europe PMC has no open-access full text for this DOI." }),
+      abstract: async () => ({ status: "unreachable", reason: "OpenAlex has no abstract for this work. Paste the source text instead." }),
+    });
+    expect(result).toEqual({
+      status: "unreachable",
+      reason:
+        "Europe PMC has no open-access full text for this DOI. OpenAlex has no abstract for this work. Paste the source text instead.",
     });
   });
 });

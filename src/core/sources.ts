@@ -1,6 +1,9 @@
 import type { FetchLike, SourceText } from "./types";
 
-/** Rebuild an OpenAlex abstract in position order, skipping gaps. */
+/**
+ * Rebuild an OpenAlex abstract in position order. Missing positions become
+ * "[...]" so that no quote can join words that were not next to each other.
+ */
 export function rebuildAbstract(index: Record<string, number[]>): string {
   const words = new Map<number, string>();
   for (const [word, positions] of Object.entries(index)) {
@@ -8,10 +11,32 @@ export function rebuildAbstract(index: Record<string, number[]>): string {
       words.set(position, word);
     }
   }
-  return [...words.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([, word]) => word)
-    .join(" ");
+  const out: string[] = [];
+  let previous: number | null = null;
+  for (const [position, word] of [...words.entries()].sort(([a], [b]) => a - b)) {
+    if (previous !== null && position > previous + 1) out.push("[...]");
+    out.push(word);
+    previous = position;
+  }
+  return out.join(" ");
+}
+
+/** The two ways to get a DOI's text, injectable for tests. */
+export interface DoiLookups {
+  fullText: (doi: string) => Promise<SourceText>;
+  abstract: (doi: string) => Promise<SourceText>;
+}
+
+/**
+ * Open-access full text first, because an abstract often does not cover a
+ * claim; the abstract second. When neither is available, both reasons are kept.
+ */
+export async function lookupDoi(doi: string, lookups: DoiLookups): Promise<SourceText> {
+  const full = await lookups.fullText(doi);
+  if (full.status === "ok") return full;
+  const abstract = await lookups.abstract(doi);
+  if (abstract.status === "ok") return abstract;
+  return { status: "unreachable", reason: `${full.reason} ${abstract.reason}` };
 }
 
 /** Build the OpenAlex work URL for a DOI with only the required fields. */
