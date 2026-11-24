@@ -107,7 +107,7 @@ export async function runCheck(
 }
 
 function appVerdict(grade: Grade, reason: string): Judgement {
-  return { grade, evidence: null, context: null, reason, warnings: [], discarded: null };
+  return { grade, evidence: null, context: null, reason, reasonBy: "app", warnings: [], discarded: null };
 }
 
 async function judgeOne(

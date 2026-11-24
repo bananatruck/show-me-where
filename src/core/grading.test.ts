@@ -112,6 +112,7 @@ describe("judgeReply", () => {
         after: "Older students did not improve.",
       },
       reason: "8%, not 18%.",
+      reasonBy: "model",
       warnings: ["The claim says 18%, which is not in the quoted sentence."],
       discarded: null,
     });
@@ -124,6 +125,7 @@ describe("judgeReply", () => {
       evidence: null,
       context: null,
       reason: REASONS.quoteNotFound,
+      reasonBy: "app",
       warnings: [],
       discarded: { grade: "supported", evidence: quote },
     });
@@ -149,6 +151,7 @@ describe("judgeReply", () => {
       evidence: null,
       context: null,
       reason: "Not covered; see [link removed]",
+      reasonBy: "model",
       warnings: [],
       discarded: null,
     });
@@ -158,6 +161,7 @@ describe("judgeReply", () => {
     expect(judgeReply("Yes, supported.", SOURCE, "c")).toMatchObject({
       grade: "cannot_tell",
       reason: REASONS.unreadable,
+      reasonBy: "app",
     });
   });
 });

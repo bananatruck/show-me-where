@@ -179,6 +179,8 @@ export interface Judgement {
   context: { before: string; after: string } | null;
   /** The model's own reason, or the app's reason when it overruled the model. */
   reason: string;
+  /** Who wrote the reason: the model, or the app itself. */
+  reasonBy: "model" | "app";
   /** The app's deterministic warnings about the quote. */
   warnings: string[];
   /** The model's grade and quote when the app threw them away. */
@@ -186,7 +188,15 @@ export interface Judgement {
 }
 
 function overruled(reason: string, discarded: Judgement["discarded"] = null): Judgement {
-  return { grade: "cannot_tell", evidence: null, context: null, reason, warnings: [], discarded };
+  return {
+    grade: "cannot_tell",
+    evidence: null,
+    context: null,
+    reason,
+    reasonBy: "app",
+    warnings: [],
+    discarded,
+  };
 }
 
 const CHECK_REASON = {
@@ -205,7 +215,7 @@ export function judgeReply(raw: string, source: string, claimScope: string): Jud
   if (!verdict) return overruled(REASONS.unreadable);
   const reason = sanitizeReason(verdict.reason);
   if (verdict.grade === "cannot_tell") {
-    return overruled(reason);
+    return { ...overruled(reason), reasonBy: "model" };
   }
   const check = checkEvidence(verdict.evidence, source);
   if (!check.ok) {
@@ -221,6 +231,7 @@ export function judgeReply(raw: string, source: string, claimScope: string): Jud
     evidence: verdict.evidence,
     context: { before: check.before, after: check.after },
     reason,
+    reasonBy: "model",
     warnings,
     discarded: null,
   };
