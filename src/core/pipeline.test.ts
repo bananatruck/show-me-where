@@ -79,8 +79,10 @@ describe("runCheck", () => {
       },
       provider,
     );
-    expect(users[0]).toContain("PART CITED TO THIS SOURCE:\nMemory scores rose sharply\n");
-    expect(users[1]).toContain("PART CITED TO THIS SOURCE:\nwhile reaction times did not change at all\n");
+    expect(users[0]).toMatch(/PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nMemory scores rose sharply\n/);
+    expect(users[1]).toMatch(
+      /PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nwhile reaction times did not change at all\n/,
+    );
     expect(users[1]).toMatch(/<source-[0-9a-f]{12}>\nSource two.\n<\/source-[0-9a-f]{12}>/);
   });
 
