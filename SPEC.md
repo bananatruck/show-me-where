@@ -47,7 +47,8 @@ Until a real run is recorded with a key, the sample is a hand-written fixture, a
 The user sees a mode switch (Sample run or Live with your key), a short line saying what leaves the browser in that mode, and one large text box.
 In Sample run mode the text box holds the synthetic example, read only, under a label that says it is synthetic.
 In Live mode the user pastes a paragraph and its reference list, and enters an OpenRouter key and a `:free` model id.
-The key is kept in session storage by default, and in local storage only if the user ticks "Remember on this device".
+The key is kept only in the page's memory: it is never written to browser storage, because storage is shared by every page on the same github.io origin, and it is forgotten when the user switches to the sample run or closes the page.
+Any copy an earlier version stored is removed when the page loads.
 "Find claims" runs the deterministic parser; nothing leaves the browser at this step.
 Empty input, a missing reference list, and text with no matched citations each get a message that says what to do next, and citations that match nothing in the reference list are named.
 
@@ -83,7 +84,10 @@ A sentence that cites several sources becomes one claim with several sources, an
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
 Narrative citations, a single citation group, a reference cited twice, and parts shorter than three words fall back to the whole sentence.
 The model always sees the whole sentence for context and the part it is asked to grade.
-A claim's headline is the best evidenced outcome across its sources, except that when one source backs the claim and another contradicts it, the headline is "Sources disagree", so a contradiction is never hidden behind a supporting source.
+A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
+When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
+When no source backs the claim, the headline is the best evidenced of the rest.
+So a contradicting or unchecked source is never hidden behind a supporting one.
 
 ## Getting the source text, and the CORS decision
 
@@ -120,7 +124,8 @@ For any grade other than `cannot_tell`, the quote must be one or more whole sent
 "Occur" means a literal substring match after only these normalisations, applied to both sides: Unicode NFC (not NFKC, which would turn a superscript 10 to the sixth into 106), typographic ligatures expanded, soft hyphens and zero-width characters removed, curly quotes made straight, all dash and hyphen variants made plain hyphens, and runs of whitespace made one space; one pair of quotation marks around the whole quote is ignored.
 The match is case sensitive, and no other fuzzy matching is allowed.
 A quote shorter than 20 characters after normalisation is rejected.
-The model's reason is shown as the model's words, with links removed and its length capped at 280 characters.
+A quote that shares no key word with the claim (a word of four or more letters that is not a common word, compared by its first five letters) is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+The model's reason, and any discarded quote, are shown as the model's words, with links (with or without a scheme) removed and the length capped at 280 characters.
 A source with no text gives "source not reachable" without calling the model.
 A failed model call (rate limit, network, server error) gives "check failed", never a grade and never "cannot tell"; a rejected key stops the run with a message.
 
@@ -129,7 +134,7 @@ A failed model call (rate limit, network, server error) gives "check failed", ne
 A literal quote can exist in the source and still not support the claim: it can describe another population, a different measure, an earlier study, or a hedged correlation.
 The app cannot verify meaning, so the interface is built so the reader checks the sentence instead of trusting a badge.
 Grades the model gives are worded as its reading: "Supported, in the model's reading", "Partly supported, in the model's reading", "Not supported, in the model's reading".
-Outcomes the app decides itself are worded plainly: "Cannot tell", "Source not reachable", "Check failed", "Sources disagree".
+Outcomes the app decides itself are worded plainly: "Cannot tell", "Source not reachable", "Check failed", "Sources disagree", "Not every cited source backs it".
 The verified sentence is always shown, highlighted inside the sentence before and after it, because the neighbouring sentences are where a "However, in our cohort" or a change of population usually sits.
 Under every kept quote a fixed line says the sentence is in the source word for word and that whether it backs the claim is the model's reading, so the reader should read it.
 Deterministic warnings point at what to read for: a number in the claim that is not in the quote, a negation in the quote that the claim lacks, hedged wording in the quote that the claim lacks, and wording that suggests earlier work.
@@ -139,10 +144,12 @@ The closing panel restates what the app checked and what it did not.
 ## Prompt injection
 
 Source text is untrusted data, and so is any text the student pastes.
-The source sits inside tags that carry a random value generated for each call, and every copy of that value is removed from the source first, so the source cannot close its own fence.
+The student's sentence, the cited part, and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
+The system prompt says that both the student's sentence and the source are data.
 The rules are repeated after the source, so the source never has the last word in the prompt.
 The model's reason is shown as its words with links removed, and its grade only survives if its quote is a whole sentence of the source.
-This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence of its own, and the README says so.
+A quote that shares no key word with the claim is discarded, so steering the model toward an unrelated real sentence fails.
+This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence that shares a word with the claim, and the README says so.
 
 ## Architecture
 

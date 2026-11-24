@@ -35,13 +35,13 @@ Only free models, whose ids end in `:free`, are accepted.
 
 1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
 2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
-3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named.
+3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
 4. When citations sit at different points in a sentence, each source is checked against the part of the sentence its citation follows. Narrative citations, a single citation group, and parts under three words fall back to the whole sentence.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
-7. The app keeps a grade only if the quote is one or more whole sentences found in the source text. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
+7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
-9. If one source backs a claim and another contradicts it, the claim reads "Sources disagree".
+9. A claim shows a backing grade only if every cited source backs it. If one source backs it and another contradicts it, it reads "Sources disagree"; if another source could not be read or checked, it reads "Not every cited source backs it".
 
 ## What it does not do
 
@@ -49,7 +49,10 @@ Only free models, whose ids end in `:free`, are accepted.
 - It does not read paywalled papers, PDFs, or web pages. Paste their text instead.
 - It does not support citation styles other than numbered and APA author-year.
 - It does not judge whether a source is trustworthy.
-- Its prompt-injection defences (a per-call random fence around the source, the rules repeated after it, links stripped from reasons) lower the risk from hostile source text but do not remove it.
+- Its prompt-injection defences (a per-call random fence around the student's text and the source, the rules repeated after them, links stripped from model text, and quotes that share no key word with the claim discarded) lower the risk from hostile text but do not remove it. A hostile source could still steer the model to a real sentence that shares a word with the claim.
+- Sentence boundaries come from a rule-based splitter. It knows common abbreviations, dotted initials such as "J.A." and "U.S.", and ellipses, but an abbreviation it does not know can still end a sentence early, which could let a quote start mid-sentence.
+- A reference line that does not look like the start of an entry is joined to the entry above it. Step 2 shows every source's full text, so check it there.
+- A DOI containing `<` or `>` (old Wiley SICI DOIs) is cut short and will not be found; paste that source's text instead.
 
 ## Outside services it calls
 
@@ -62,7 +65,7 @@ In a live run, and only then:
 | OpenAlex (`api.openalex.org`) | The DOI | Read the abstract when there is no open-access full text |
 | OpenRouter (`openrouter.ai/api/v1/chat/completions`) | Each claim and its source text, with your key | Ask a free model for its reading |
 
-Your key is stored only in this browser: session storage by default, local storage if you tick "Remember on this device".
+Your key is kept only in the page's memory. It is never written to browser storage, because storage is shared by every page on the same github.io address, and it is forgotten when you switch to the sample run or close the page.
 There is no server, proxy, or analytics of ours.
 Fonts are bundled with the app, so no font service is called.
 

@@ -48,7 +48,7 @@ Show the caffeine claim, then the last claim.
 
 Switch to "Live with your key".
 "In a live run, DOIs go to Europe PMC for open-access full text, then OpenAlex for the abstract, and each claim goes to a free OpenRouter model under my own key."
-"The key stays in my browser, and the summary lists every service that was called."
+"The key is kept only in the page's memory, never stored, and the summary lists every service that was called."
 
 ## 2:30 to 2:40, close
 
