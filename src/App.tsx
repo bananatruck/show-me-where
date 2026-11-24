@@ -34,7 +34,11 @@ function analysisProblem(text: string, analysis: Analysis): string | null {
     return "No reference list found. Put a line that says References above your list.";
   }
   if (analysis.claims.length === 0) {
-    return "No cited sentences found. Citations must look like (Smith, 2020) or [1] and match an entry in your reference list.";
+    const unmatched =
+      analysis.unresolved.length > 0
+        ? ` These citations match nothing in your reference list: ${analysis.unresolved.join("; ")}.`
+        : "";
+    return `No cited sentences found. Citations must look like (Smith, 2020) or [1] and match an entry in your reference list.${unmatched}`;
   }
   return null;
 }
@@ -140,6 +144,7 @@ export function App() {
       setServices([...called]);
       setReport(await runCheck(current, resolved, provider, onProgress));
     } catch (e) {
+      setProgress("");
       const message = e instanceof Error ? e.message : String(e);
       setError(
         e instanceof ProviderError && e.kind === "auth"
@@ -207,7 +212,7 @@ export function App() {
               <p className="quiet" id="model-help">
                 Only free models, whose ids end in <code>:free</code>, are allowed.
               </p>
-              <label className="field">
+              <label className="check">
                 <input type="checkbox" checked={remember} onChange={(e) => changeKey(apiKey, e.target.checked)} /> Remember on this device
               </label>
             </div>

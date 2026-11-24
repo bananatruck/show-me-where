@@ -45,19 +45,26 @@ function SourceCheck({
   source,
   judgement,
   highlight,
+  showGrade,
 }: {
   reference: Reference | undefined;
   source: SourceText | undefined;
   judgement: Judgement;
   highlight: string;
+  /** Only when a claim cites several sources; otherwise the headline already says it. */
+  showGrade: boolean;
 }) {
   return (
     <li className="source-check">
       <div className="source-label">
-        <span className="verdict" data-grade={judgement.grade}>
-          {SHORT_GRADE[judgement.grade]}
-        </span>
-        <br />
+        {showGrade && (
+          <>
+            <span className="verdict" data-grade={judgement.grade}>
+              {SHORT_GRADE[judgement.grade]}
+            </span>
+            <br />
+          </>
+        )}
         {reference?.label ?? "Unknown source"}
         <br />
         {originText(source)}
@@ -139,6 +146,7 @@ function ResultItem({
             source={sources[ref]}
             judgement={judgement}
             highlight={highlight}
+            showGrade={perSource.length > 1}
           />
         ))}
       </ul>

@@ -66,9 +66,11 @@ describe("App", () => {
 
   it("says when no cited sentences are found", () => {
     render(<App />);
-    goLive("Sleep matters.\nReferences\n[1] A paper.");
+    goLive("Sleep matters (Smith, 2019).\nReferences\nLee, C. (2020). A paper.");
     fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
-    expect(screen.getByRole("alert").textContent).toContain("No cited sentences found.");
+    const alert = screen.getByRole("alert").textContent;
+    expect(alert).toContain("No cited sentences found.");
+    expect(alert).toContain("match nothing in your reference list: Smith, 2019.");
   });
 
   it("says when there is no reference list", () => {
