@@ -48,7 +48,7 @@ describe("parseMarkers", () => {
   });
 
   it("accepts an en dash in a range", () => {
-    expect(parseMarkers("A [2–3].", known).refs).toEqual([2, 3]);
+    expect(parseMarkers("A [2\u20133].", known).refs).toEqual([2, 3]);
   });
 
   it("leaves a bracketed number that is not a known reference as text", () => {

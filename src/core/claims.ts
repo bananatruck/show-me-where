@@ -51,7 +51,7 @@ export function splitSentences(text: string): string[] {
       const ch = paragraph[i];
       if (ch === "." || ch === "!" || ch === "?") {
         let end = i + 1;
-        while (end < paragraph.length && "\"')”’".includes(paragraph[end] ?? "")) {
+        while (end < paragraph.length && "\"')\u201D\u2019".includes(paragraph[end] ?? "")) {
           end += 1;
         }
         end += MARKER_RUN.exec(paragraph.slice(end))?.[0].length ?? 0;
@@ -59,7 +59,7 @@ export function splitSentences(text: string): string[] {
         const next = /^\s+(\S)/.exec(rest)?.[1];
         const boundary =
           next !== undefined &&
-          /[A-Z0-9"'([“‘]/.test(next) &&
+          /[A-Z0-9"'([\u201C\u2018]/.test(next) &&
           !(ch === "." && isAbbreviation(paragraph.slice(start, i)));
         if (boundary) {
           sentences.push(paragraph.slice(start, end));
@@ -75,14 +75,14 @@ export function splitSentences(text: string): string[] {
   return sentences.map((s) => s.replace(/\s+/g, " ").trim()).filter((s) => s !== "");
 }
 
-const MARKER = /\s*\[(\d+(?:\s*[-–]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–]\s*\d+)?)*)\]/g;
+const MARKER = /\s*\[(\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*)\]/g;
 const MAX_RANGE = 50;
 
 /** Expands "1, 3-5" into [1, 3, 4, 5], or null if any part is malformed. */
 function expandMarker(inner: string): number[] | null {
   const out: number[] = [];
   for (const part of inner.split(",")) {
-    const [a, b] = part.split(/[-–]/).map((s) => Number(s.trim()));
+    const [a, b] = part.split(/[-\u2013]/).map((s) => Number(s.trim()));
     if (a === undefined || !Number.isInteger(a)) return null;
     if (b === undefined) {
       out.push(a);

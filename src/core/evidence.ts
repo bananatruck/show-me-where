@@ -3,9 +3,9 @@ export const MIN_EVIDENCE_LENGTH = 20;
 
 // Hyphen, non-breaking hyphen, figure dash, en dash, em dash, horizontal bar,
 // minus sign, small and full-width hyphen-minus.
-const DASHES = /[‐‑‒–—―−﹣－]/g;
-const DOUBLE_QUOTES = /[“”„‟«»]/g;
-const SINGLE_QUOTES = /[‘’‚‛]/g;
+const DASHES = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE63\uFF0D]/g;
+const DOUBLE_QUOTES = /[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g;
+const SINGLE_QUOTES = /[\u2018\u2019\u201A\u201B]/g;
 
 /**
  * The only normalisation allowed before matching: NFKC, straight quotes,

@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { MIN_EVIDENCE_LENGTH, checkEvidence, normalizeForMatch } from "./evidence";
 
 const SOURCE =
-  "Participants slept 7.1 hours on average. Sleep “quality” improved by 12% in the intervention group – but not in controls.\nThe effect faded after six weeks.";
+  "Participants slept 7.1 hours on average. Sleep \u201Cquality\u201D improved by 12% in the intervention group \u2013 but not in controls.\nThe effect faded after six weeks.";
 
 describe("normalizeForMatch", () => {
   it("turns curly quotes into straight quotes", () => {
-    expect(normalizeForMatch("“quality” ‘x’")).toBe("\"quality\" 'x'");
+    expect(normalizeForMatch("\u201Cquality\u201D \u2018x\u2019")).toBe("\"quality\" 'x'");
   });
 
   it("turns every dash and hyphen variant into a plain hyphen", () => {
-    expect(normalizeForMatch("a‐b‑c‒d–e—f−g")).toBe(
+    expect(normalizeForMatch("a\u2010b\u2011c\u2012d\u2013e\u2014f\u2212g")).toBe(
       "a-b-c-d-e-f-g",
     );
   });
@@ -20,7 +20,7 @@ describe("normalizeForMatch", () => {
   });
 
   it("applies NFKC so compatibility characters match their plain form", () => {
-    expect(normalizeForMatch("ﬁve")).toBe("five");
+    expect(normalizeForMatch("\uFB01ve")).toBe("five");
   });
 
   it("keeps case", () => {
