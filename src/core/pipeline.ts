@@ -1,0 +1,117 @@
+import { extractClaims } from "./claims";
+import { buildPrompt, headlineGrade, judgeReply, type Judgement } from "./grading";
+import { ProviderError, type ModelProvider } from "./provider";
+import { parseReferences, splitDocument } from "./references";
+import type { Claim, Grade, Reference, SourceText } from "./types";
+
+/** What the app found in the pasted text, before anything leaves the browser. */
+export interface Analysis {
+  claims: Claim[];
+  uncited: string[];
+  references: Reference[];
+  /** Reference numbers cited by at least one claim, ascending. */
+  citedRefs: number[];
+}
+
+/** Deterministic step: split the text into claims and parse the reference list. */
+export function analyzeText(text: string): Analysis {
+  const { body, referenceList } = splitDocument(text);
+  const references = parseReferences(referenceList);
+  const known = new Set(references.map((r) => r.number));
+  const { claims, uncited } = extractClaims(body, known);
+  const cited = new Set(claims.flatMap((c) => c.refs));
+  return { claims, uncited, references, citedRefs: [...cited].sort((a, b) => a - b) };
+}
+
+export const NO_DOI_REASON = "No DOI found in this reference. Paste the source text instead.";
+
+/**
+ * Gets the text of every cited reference once. Pasted text always wins; a DOI
+ * is looked up with lookupDoi; anything else is unreachable.
+ */
+export async function resolveSources(
+  analysis: Analysis,
+  pasted: Readonly<Record<number, string>>,
+  lookupDoi: (doi: string) => Promise<SourceText>,
+): Promise<Record<number, SourceText>> {
+  const out: Record<number, SourceText> = {};
+  for (const number of analysis.citedRefs) {
+    const pastedText = pasted[number]?.trim();
+    const reference = analysis.references.find((r) => r.number === number);
+    if (pastedText) {
+      out[number] = { status: "ok", text: pastedText, origin: "pasted" };
+    } else if (reference?.doi) {
+      out[number] = await lookupDoi(reference.doi);
+    } else {
+      out[number] = { status: "unreachable", reason: NO_DOI_REASON };
+    }
+  }
+  return out;
+}
+
+export interface ClaimResult {
+  claim: Claim;
+  headline: Grade;
+  perSource: { ref: number; judgement: Judgement }[];
+}
+
+export interface CheckReport {
+  results: ClaimResult[];
+  modelLabel: string;
+}
+
+/**
+ * Grades every claim against every source it cites, one model call at a time
+ * to stay inside free-tier rate limits. A rejected key stops the run; any
+ * other failed call is recorded as cannot_tell.
+ */
+export async function runCheck(
+  analysis: Analysis,
+  sources: Readonly<Record<number, SourceText>>,
+  provider: ModelProvider,
+): Promise<CheckReport> {
+  const results: ClaimResult[] = [];
+  for (const claim of analysis.claims) {
+    const perSource: ClaimResult["perSource"] = [];
+    for (const ref of claim.refs) {
+      perSource.push({ ref, judgement: await judgeOne(claim, ref, sources[ref], provider) });
+    }
+    results.push({
+      claim,
+      headline: headlineGrade(perSource.map((p) => p.judgement.grade)),
+      perSource,
+    });
+  }
+  return { results, modelLabel: provider.label };
+}
+
+async function judgeOne(
+  claim: Claim,
+  ref: number,
+  source: SourceText | undefined,
+  provider: ModelProvider,
+): Promise<Judgement> {
+  if (!source || source.status === "unreachable") {
+    return {
+      grade: "source_not_reachable",
+      evidence: null,
+      reason: source?.reason ?? NO_DOI_REASON,
+      discarded: null,
+    };
+  }
+  const { system, user } = buildPrompt(claim.text, source.text);
+  let raw: string;
+  try {
+    raw = await provider.complete({ key: `${claim.id}:${ref}`, system, user });
+  } catch (error) {
+    if (error instanceof ProviderError && error.kind === "auth") throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      grade: "cannot_tell",
+      evidence: null,
+      reason: `The model call failed: ${message}`,
+      discarded: null,
+    };
+  }
+  return judgeReply(raw, source.text);
+}
