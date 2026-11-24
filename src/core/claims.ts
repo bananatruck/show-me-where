@@ -187,26 +187,37 @@ function expandMarker(inner: string): number[] | null {
   return out;
 }
 
+/** Numbers this large in brackets are years or other figures, not reference numbers. */
+const LARGEST_REFERENCE_NUMBER = 999;
+
 /**
- * Finds numeric bracket citations. A marker counts only when every number in
- * it is a known reference; otherwise it is left in the text.
+ * Finds numeric bracket citations. A bracket counts when at least one of its
+ * numbers is a known reference; its other numbers are reported as unresolved,
+ * as are brackets of small numbers that match nothing. Brackets of large
+ * numbers such as "[2019]" are left in the text.
  */
 export function findNumericCitations(
   sentence: string,
   knownRefs: ReadonlySet<number>,
-): Citation[] {
+): { citations: Citation[]; unresolved: string[] } {
   const citations: Citation[] = [];
+  const unresolved: string[] = [];
   for (const match of sentence.matchAll(MARKER)) {
     const numbers = expandMarker(match[1] ?? "");
-    if (!numbers || numbers.length === 0 || !numbers.every((n) => knownRefs.has(n))) continue;
+    if (!numbers || numbers.length === 0) continue;
+    const known = [...new Set(numbers.filter((n) => knownRefs.has(n)))].sort((a, b) => a - b);
+    for (const n of numbers) {
+      if (!knownRefs.has(n) && n <= LARGEST_REFERENCE_NUMBER) unresolved.push(`[${n}]`);
+    }
+    if (known.length === 0) continue;
     citations.push({
       start: match.index,
       end: match.index + match[0].length,
-      refs: [...new Set(numbers)].sort((a, b) => a - b),
+      refs: known,
       narrative: false,
     });
   }
-  return citations;
+  return { citations, unresolved };
 }
 
 function tidy(text: string): string {
@@ -266,7 +277,7 @@ export function parseMarkers(
   sentence: string,
   knownRefs: ReadonlySet<number>,
 ): { refs: number[]; text: string } {
-  const citations = findNumericCitations(sentence, knownRefs);
+  const { citations } = findNumericCitations(sentence, knownRefs);
   return {
     refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
     text: tidy(removeSpans(sentence, citations)),
@@ -286,7 +297,9 @@ export function extractClaims(
   for (const sentence of splitSentences(body)) {
     let citations: Citation[];
     if (style === "numeric") {
-      citations = findNumericCitations(sentence, known);
+      const found = findNumericCitations(sentence, known);
+      citations = found.citations;
+      unresolved.push(...found.unresolved);
     } else {
       const found = findAuthorYearCitations(sentence, references);
       citations = found.citations;

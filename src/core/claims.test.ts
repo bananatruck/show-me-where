@@ -135,6 +135,17 @@ describe("extractClaims", () => {
     });
   });
 
+  it("checks the known references in a bracket and reports the unknown ones", () => {
+    const { claims, uncited, unresolved } = extractClaims(
+      "Mortality fell by 50% [1, 3]. Naps improve recall [4]. In [2019] it rose.",
+      "numeric",
+      numericRefs([1, 2]),
+    );
+    expect(claims.map((c) => [c.text, c.refs])).toEqual([["Mortality fell by 50%.", [1]]]);
+    expect(uncited).toEqual(["Naps improve recall [4].", "In [2019] it rose."]);
+    expect(unresolved).toEqual(["[3]", "[4]"]);
+  });
+
   it("uses the whole sentence when words follow the last citation", () => {
     const sentence =
       "Earlier clinical studies [1] and recent patient trials [2] proved that bleach cures COVID-19 in humans.";
