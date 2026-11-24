@@ -3,6 +3,7 @@ import { fetchFullTextByDoi } from "./core/europepmc";
 import { analyzeText, resolveSources, runCheck, type Analysis, type CheckReport } from "./core/pipeline";
 import { ProviderError, createOpenRouterProvider, createReplayProvider } from "./core/provider";
 import { fetchSourceByDoi, lookupDoi } from "./core/sources";
+import { withTimeout } from "./core/timeout";
 import type { FetchLike, SourceText } from "./core/types";
 import { SAMPLE_RUN } from "./fixtures/sample";
 import { loadKey, saveKey } from "./keyStore";
@@ -26,6 +27,10 @@ function sampleSources(): Record<number, SourceText> {
 }
 
 const browserFetch: FetchLike = (input, init) => window.fetch(input, init);
+/** A slow source service is treated as unreachable, so the lookup moves on. */
+const sourceFetch = withTimeout(browserFetch, 20_000);
+/** Free models can be slow; a call that hangs longer than this becomes "check failed". */
+const modelFetch = withTimeout(browserFetch, 120_000);
 
 /** Problems found in step 1, worded as what to do next. */
 function analysisProblem(text: string, analysis: Analysis): string | null {
@@ -124,18 +129,18 @@ export function App() {
         setError("Enter your OpenRouter key to run a live check. The sample run needs no key.");
         return;
       }
-      const provider = createOpenRouterProvider({ apiKey, model, fetchImpl: browserFetch });
+      const provider = createOpenRouterProvider({ apiKey, model, fetchImpl: modelFetch });
       const called = new Set<string>();
       setProgress("Fetching source text.");
       const resolved = await resolveSources(current, pasted, (doi) =>
         lookupDoi(doi, {
           fullText: (d) => {
             called.add("Europe PMC (full-text lookup by DOI)");
-            return fetchFullTextByDoi(d, browserFetch);
+            return fetchFullTextByDoi(d, sourceFetch);
           },
           abstract: (d) => {
             called.add("OpenAlex (abstract lookup by DOI)");
-            return fetchSourceByDoi(d, browserFetch);
+            return fetchSourceByDoi(d, sourceFetch);
           },
         }),
       );
