@@ -237,6 +237,13 @@ function removeSpans(sentence: string, spans: readonly Citation[]): string {
 
 const MIN_SCOPE_WORDS = 3;
 
+/** Words that make the start of a sentence a frame over everything after it. */
+const SHARED_FRAME =
+  /\b(?:no|not|never|none|neither|nor|without|cannot|unlikely|unclear|whether|if|that|may|might|could)\b|n't\b/i;
+
+/** How a later part of a sentence must open to stand as its own clause. */
+const CLAUSE_OPENER = /^\s*(?:;|,?\s*(?:while|whereas|but|although|though|however)\b)/i;
+
 /**
  * The part of the sentence each citation is attached to. A sentence is split
  * only when it is safe: every citation is parenthetical, there are at least
@@ -263,8 +270,15 @@ function scopesFor(sentence: string, citations: readonly Citation[], text: strin
   for (const c of citations) for (const r of c.refs) seen.set(r, (seen.get(r) ?? 0) + 1);
   const scopes: Record<number, string> = {};
   let previousEnd = 0;
-  for (const c of citations) {
-    const segment = tidy(sentence.slice(previousEnd, c.start)).replace(/^[,;:]\s*/, "");
+  for (const [k, c] of citations.entries()) {
+    const raw = sentence.slice(previousEnd, c.start);
+    // A frame at the start ("No evidence shows that", "It is unlikely that")
+    // governs every part, so the first part must be free of one.
+    if (k === 0 && SHARED_FRAME.test(raw)) return whole;
+    // A later part must open a clause of its own ("; ...", ", while ...");
+    // "or reduces mortality" leans on the first part's subject and frame.
+    if (k > 0 && !CLAUSE_OPENER.test(raw)) return whole;
+    const segment = tidy(raw).replace(/^[,;:]\s*/, "");
     if (segment.split(/\s+/).filter(Boolean).length < MIN_SCOPE_WORDS) return whole;
     for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : segment;
     previousEnd = c.end;

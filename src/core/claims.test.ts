@@ -148,6 +148,16 @@ describe("extractClaims", () => {
     expect(unresolved).toEqual(["[3]", "[4]"]);
   });
 
+  it.each([
+    "No evidence shows that Drug X improves survival [1] or reduces mortality [2].",
+    "Drug X improves survival in older adults [1] and reduces mortality in younger ones [2].",
+    "It is unlikely that coffee improves memory [1], while tea improves sleep quality [2].",
+  ])("uses the whole sentence when the parts share a frame or subject: %j", (sentence) => {
+    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
+    const text = claims[0]?.text ?? "";
+    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
+  });
+
   it("uses the whole sentence when words follow the last citation", () => {
     const sentence =
       "Earlier clinical studies [1] and recent patient trials [2] proved that bleach cures COVID-19 in humans.";
