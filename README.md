@@ -74,7 +74,8 @@ Fonts are bundled with the app, so no font service is called.
 | rough-notation 0.5.1 | npm | MIT | Draws the stroke for the highlighter |
 | Atkinson Hyperlegible | `@fontsource/atkinson-hyperlegible` | SIL OFL 1.1 | Interface typeface, bundled |
 | Source Serif 4 | `@fontsource/source-serif-4` | SIL OFL 1.1 | Typeface for student text and source passages, bundled |
-| React, Vite, Vitest, ESLint, TypeScript | npm | MIT or Apache-2.0 | Framework and tooling |
+| React, React DOM, scheduler | npm | MIT | Bundled into the site; the build drops their licence headers, so the notices file carries them |
+| Vite, Vitest, ESLint, TypeScript | npm | MIT or Apache-2.0 | Build and test tooling, not shipped |
 
 The full licence texts for these, including the SIL Open Font License for the bundled fonts, are in [public/THIRD_PARTY_NOTICES.txt](public/THIRD_PARTY_NOTICES.txt), which ships with the site and is linked from its footer.
 Show Me Where itself is released under the [MIT License](LICENSE).
