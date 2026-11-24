@@ -53,7 +53,7 @@ function SourceCheck({
   source: SourceText | undefined;
   judgement: Judgement;
   highlight: string;
-  /** Only when a claim cites several sources; otherwise the headline already says it. */
+  /** Only when the headline does not already say it. */
   showGrade: boolean;
 }) {
   return (
@@ -150,7 +150,9 @@ function ResultItem({
             source={sources[ref]}
             judgement={judgement}
             highlight={highlight}
-            showGrade={perSource.length > 1}
+            // Shown whenever it could differ from the headline: several sources, or
+            // a cited reference that is not in the list.
+            showGrade={perSource.length > 1 || claim.unresolved.length > 0 || judgement.grade !== headline}
           />
         ))}
       </ul>

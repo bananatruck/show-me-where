@@ -246,6 +246,8 @@ describe("App", () => {
     const item = results.children[0];
     expect(item?.getAttribute("data-grade")).toBe("not_every_source_backs_it");
     expect(item?.textContent).toContain("Also cited but not in your reference list, so not checked: [3].");
+    // The checked source's own grade stays visible under the non-backing headline.
+    expect(item?.querySelector(".source-label .verdict")?.textContent).toBe("Supported");
   });
 
   it("cancels the model request in flight and makes no more after switching to the sample run", async () => {
