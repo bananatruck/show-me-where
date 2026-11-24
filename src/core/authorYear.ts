@@ -139,7 +139,7 @@ const NAME_WORD_START = new RegExp(NAME_WORD, "gu");
 
 /** Words that can open a sentence before a narrative citation, as in "Recently Brown (2018)". */
 const LEAD_INS = new Set(
-  "recently however also similarly likewise later earlier previously moreover furthermore notably additionally thus hence indeed conversely finally first second third then still yet in by for".split(
+  "the recently however also similarly likewise later earlier previously moreover furthermore notably additionally thus hence indeed conversely finally first second third then still yet in by for".split(
     " ",
   ),
 );

@@ -233,4 +233,16 @@ describe("narrative readings", () => {
     expect(findAuthorYearCitations("However, Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
     expect(findAuthorYearCitations("Recently Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
   });
+
+  it("drops an opening The, but still prefers a group name that starts with The", () => {
+    const refs = parseAuthorYearReferences(
+      ["Smith, A., & Jones, B. (2020). Two authors.", "The Lancet Commission. (2021). A report."].join("\n"),
+    );
+    expect(
+      findAuthorYearCitations("The Smith and Jones (2020) study found an increase.", refs).citations,
+    ).toEqual([{ start: 4, end: 26, refs: [1], narrative: true }]);
+    expect(
+      findAuthorYearCitations("The Lancet Commission (2021) set targets.", refs).citations,
+    ).toEqual([{ start: 0, end: 28, refs: [2], narrative: true }]);
+  });
 });
