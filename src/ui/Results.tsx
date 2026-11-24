@@ -75,7 +75,9 @@ function SourceCheck({
         <>
           <p className="passage">
             {judgement.context.before && <span className="context">{judgement.context.before} </span>}
+            <span className="visually-hidden">Verified quote: </span>
             <Highlighter color={highlight}>{judgement.evidence}</Highlighter>
+            <span className="visually-hidden"> End of quote.</span>
             {judgement.context.after && <span className="context"> {judgement.context.after}</span>}
           </p>
           <div className="reading-note">

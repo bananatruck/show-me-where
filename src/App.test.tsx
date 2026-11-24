@@ -196,4 +196,22 @@ describe("App", () => {
     expect(alert).toContain("Already contacted in this run: OpenRouter google/gemma-4-31b-it:free.");
     expect(alert).not.toContain("nothing was graded");
   });
+
+  it("moves focus to each new step and announces the verified quote to screen readers", async () => {
+    render(<App />);
+    expect(document.getElementById("main")?.getAttribute("tabindex")).toBe("-1");
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Claims and sources/ }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const heading = await screen.findByRole("heading", { name: /What the sources say/ });
+    await vi.waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(screen.queryByText(/Checked \d+ of \d+/)).toBeNull();
+
+    const first = Array.from(screen.getByRole("list", { name: "Results" }).children)[0];
+    expect(first?.querySelector(".passage")?.textContent).toContain(
+      "Verified quote: Students who slept at least seven hours",
+    );
+    expect(first?.querySelector(".passage")?.textContent).toContain("End of quote.");
+  });
 });

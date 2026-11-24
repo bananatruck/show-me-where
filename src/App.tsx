@@ -66,6 +66,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   /** Identifies the newest check; a check that is no longer newest must not write state. */
   const runRef = useRef(0);
+  const step2Ref = useRef<HTMLHeadingElement>(null);
+  const step3Ref = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     applyTheme(theme, false);
@@ -74,6 +76,15 @@ export function App() {
   useEffect(() => {
     forgetStoredKeys();
   }, []);
+
+  // Move focus to each step as it appears, so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (analysis && !problem) step2Ref.current?.focus();
+  }, [analysis, problem]);
+
+  useEffect(() => {
+    if (report) step3Ref.current?.focus();
+  }, [report]);
 
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
@@ -134,6 +145,7 @@ export function App() {
         setSources(resolved);
         setServices([]);
         setReport(result);
+        setProgress("");
         return;
       }
       if (apiKey.trim() === "") {
@@ -161,6 +173,7 @@ export function App() {
       const result = await runCheck(current, resolved, provider, onProgress);
       if (!live()) return;
       setReport(result);
+      setProgress("");
     } catch (e) {
       if (!live()) return;
       setProgress("");
@@ -194,17 +207,21 @@ export function App() {
         </button>
       </header>
 
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         <section className="step" aria-labelledby="step-1">
           <h2 id="step-1">
             <span className="step-number">1</span> Paste your text
           </h2>
           <fieldset className="segmented">
             <legend>Mode</legend>
-            <input id="mode-sample" type="radio" name="mode" checked={mode === "sample"} onChange={() => switchMode("sample")} />
-            <label htmlFor="mode-sample">Sample run</label>
-            <input id="mode-live" type="radio" name="mode" checked={mode === "live"} onChange={() => switchMode("live")} />
-            <label htmlFor="mode-live">Live with your key</label>
+            <span className="seg">
+              <input id="mode-sample" type="radio" name="mode" checked={mode === "sample"} onChange={() => switchMode("sample")} />
+              <label htmlFor="mode-sample">Sample run</label>
+            </span>
+            <span className="seg">
+              <input id="mode-live" type="radio" name="mode" checked={mode === "live"} onChange={() => switchMode("live")} />
+              <label htmlFor="mode-live">Live with your key</label>
+            </span>
           </fieldset>
 
           {mode === "sample" ? (
@@ -266,7 +283,7 @@ export function App() {
 
         {analysis && !problem && (
           <section className="step" aria-labelledby="step-2">
-            <h2 id="step-2">
+            <h2 id="step-2" tabIndex={-1} ref={step2Ref}>
               <span className="step-number">2</span> Claims and sources
             </h2>
             <ol className="claims" aria-label="Cited claims">
@@ -348,7 +365,7 @@ export function App() {
 
         {analysis && report && (
           <section className="step" aria-labelledby="step-3">
-            <h2 id="step-3">
+            <h2 id="step-3" tabIndex={-1} ref={step3Ref}>
               <span className="step-number">3</span> What the sources say
             </h2>
             <Results
