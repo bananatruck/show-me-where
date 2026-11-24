@@ -1,4 +1,4 @@
-import { sentenceSpans } from "./claims";
+import { sentenceSpans, type SentenceSpan } from "./claims";
 
 /** A quoted piece of evidence must be at least this long after normalisation. */
 export const MIN_EVIDENCE_LENGTH = 20;
@@ -57,14 +57,23 @@ export function checkEvidence(quote: string, source: string): EvidenceCheck {
   if (q.length < MIN_EVIDENCE_LENGTH) {
     return { ok: false, reason: "too_short" };
   }
-  // Normalise each paragraph on its own, so a paragraph break (after a heading,
-  // say) still ends a sentence for the splitter.
-  const s = source
+  // One match string with single spaces everywhere, the same form as the
+  // quote, so a quote may run across a paragraph break. Sentence spans are
+  // found per paragraph and shifted into it, so a paragraph break (after a
+  // heading, say) still ends a sentence.
+  const paragraphs = source
     .split(/\n\s*\n/)
     .map(normalizeForMatch)
-    .filter((p) => p !== "")
-    .join("\n\n");
-  const spans = sentenceSpans(s);
+    .filter((p) => p !== "");
+  const s = paragraphs.join(" ");
+  const spans: SentenceSpan[] = [];
+  let offset = 0;
+  for (const paragraph of paragraphs) {
+    for (const span of sentenceSpans(paragraph)) {
+      spans.push({ start: span.start + offset, stop: span.stop + offset, end: span.end + offset });
+    }
+    offset += paragraph.length + 1;
+  }
   const sentence = (k: number) => {
     const span = spans[k];
     return span ? s.slice(span.start, span.end) : "";

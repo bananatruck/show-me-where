@@ -121,6 +121,15 @@ describe("checkEvidence", () => {
     });
   });
 
+  it("accepts a quote that runs across a paragraph break", () => {
+    const source = "Treatment improved survival.\n\nRecovery improved after treatment.\n\nNo other change was seen.";
+    expect(checkEvidence("Treatment improved survival. Recovery improved after treatment.", source)).toEqual({
+      ok: true,
+      before: "",
+      after: "No other change was seen.",
+    });
+  });
+
   it("rejects a quote that stops in the middle of a sentence", () => {
     expect(checkEvidence("Participants slept 7.1 hours", SOURCE)).toEqual({
       ok: false,
