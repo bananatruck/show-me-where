@@ -14,7 +14,9 @@ export function rebuildAbstract(index: Record<string, number[]>): string {
   const out: string[] = [];
   let previous: number | null = null;
   for (const [position, word] of [...words.entries()].sort(([a], [b]) => a - b)) {
-    if (previous !== null && position > previous + 1) out.push("[...]");
+    if ((previous === null && position > 0) || (previous !== null && position > previous + 1)) {
+      out.push("[...]");
+    }
     out.push(word);
     previous = position;
   }
