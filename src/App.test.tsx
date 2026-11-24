@@ -178,4 +178,22 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
     expect((screen.getByLabelText("Source text for [1]") as HTMLTextAreaElement).value).toBe("");
   });
+
+  it("says which services were already contacted when the key is rejected", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "No auth credentials found", code: 401 } }), { status: 401 }),
+    );
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the first claim holds." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const alert = (await screen.findByRole("alert")).textContent ?? "";
+    expect(alert).toContain("OpenRouter rejected the key (HTTP 401)");
+    expect(alert).toContain("Already contacted in this run: OpenRouter google/gemma-4-31b-it:free.");
+    expect(alert).not.toContain("nothing was graded");
+  });
 });

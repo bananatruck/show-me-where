@@ -116,6 +116,8 @@ export function App() {
     setError(null);
     setReport(null);
     setBusy(true);
+    // Every outside service this run has contacted, so an error can say so too.
+    const called = new Set<string>();
     const onProgress = (done: number, total: number) => {
       if (live()) setProgress(`Checked ${done} of ${total} claim and source pairs.`);
     };
@@ -139,7 +141,6 @@ export function App() {
         return;
       }
       const provider = createOpenRouterProvider({ apiKey, model, fetchImpl: modelFetch });
-      const called = new Set<string>();
       setProgress("Fetching source text.");
       const resolved = await resolveSources(current, pasted, (doi) =>
         lookupDoi(doi, {
@@ -164,10 +165,12 @@ export function App() {
       if (!live()) return;
       setProgress("");
       const message = e instanceof Error ? e.message : String(e);
+      const contacted =
+        called.size > 0 ? ` Already contacted in this run: ${[...called].join(", ")}.` : "";
       setError(
         e instanceof ProviderError && e.kind === "auth"
-          ? `${message}. Check the key and try again; nothing was graded.`
-          : message,
+          ? `${message}. Check the key and try again. No results are shown.${contacted}`
+          : `${message}${contacted}`,
       );
     } finally {
       if (live()) setBusy(false);
