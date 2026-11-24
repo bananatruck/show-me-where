@@ -79,6 +79,7 @@ Europe PMC full text for open-access articles is the next source to add, because
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
 The app never uses a third-party CORS proxy, because a proxy would receive the user's text and key without the user knowing.
 What leaves the browser: the DOI goes to OpenAlex; the claim and the source text go to OpenRouter under the user's own key; nothing else is sent anywhere.
+On 2026-11-24 a live-mode run in Chrome from a local build fetched an abstract from OpenAlex by DOI and got a readable HTTP 401 reply from OpenRouter for a placeholder key, so both calls pass CORS from a browser.
 Rebuilding an abstract from an inverted index keeps the words and their order but joins them with single spaces, so the evidence check runs against exactly the rebuilt text the model was shown.
 
 ## The grading rubric the model is held to
@@ -106,9 +107,8 @@ When a claim cites several sources, each source is graded on its own and every r
 ## Architecture
 
 All logic lives in `src/core` as plain TypeScript functions with no React and no global state, so every rule above is unit tested.
-`citations.ts` splits the text into body and reference list and parses citation markers.
-`claims.ts` splits the body into sentences and builds the claim list.
-`references.ts` parses reference entries and extracts DOIs.
+`references.ts` splits the text into body and reference list, parses reference entries, and extracts DOIs.
+`claims.ts` splits the body into sentences, parses citation markers, and builds the claim list.
 `evidence.ts` holds the normalisation and the evidence-must-occur check.
 `grading.ts` parses the model's reply and applies the check.
 `provider.ts` holds the `ModelProvider` interface, the OpenRouter provider, and the replay provider used by the sample run.
@@ -137,8 +137,9 @@ Judging whether a source is itself trustworthy is out of scope; the app checks o
 ## Test plan
 
 Unit tests in Vitest, written before the code they test.
-`citations`: single, list, and range markers; no markers; references heading variants; markers inside numbers like `[2019]` are not treated as citations when no such reference exists.
-`claims`: abbreviations, decimal numbers, sentences ending in a marker, sentences with no marker, multiple markers per sentence.
+`references` (splitting): references heading variants; the word inside a sentence is not a heading.
+`claims` (markers): single, list, and range markers; no markers; a bracketed number like `[2019]` is not a citation when no such reference exists.
+`claims` (sentences): abbreviations, decimal numbers, sentences ending in a marker, sentences with no marker, multiple markers per sentence.
 `references`: DOI bare, with `doi:`, inside a `doi.org` URL, trailing punctuation stripped, entry with no DOI.
 `evidence`: exact match passes; curly quotes and dash variants pass; a changed word fails; a case change fails; a quote under 20 characters fails; an empty quote fails.
 `grading`: valid replies for each grade; JSON inside a code fence; invalid JSON; unknown grade; a supported grade with a quote that is not in the source is discarded to cannot tell.
@@ -153,7 +154,7 @@ Before submission, one real run with a free model is recorded and replaces the s
 
 0:00 The problem: a student's paragraph cites three papers, and one sentence says more than its source does.
 0:20 Open the app, show the sample run label, and run it with no key.
-0:40 Show the claim list: four cited claims, one uncited sentence listed as not checked.
+0:40 Show the claim list: five cited claims, one uncited sentence listed as not checked.
 1:00 Show a supported claim and its highlighted source sentence.
 1:20 Show a partly supported claim where the source gives a smaller number than the paragraph.
 1:40 Show the discarded grade: the model quoted a sentence that is not in the source, so the app struck its grade and said cannot tell.
