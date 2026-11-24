@@ -1,0 +1,20 @@
+{
+  "note": "Hand-written, not recorded. Follows the non-streaming response shape in the OpenRouter API reference (choices[].message.content). Replace with a recorded reply once a key is available.",
+  "status": 200,
+  "body": {
+    "id": "gen-synthetic-0001",
+    "object": "chat.completion",
+    "created": 1795558000,
+    "model": "google/gemma-4-31b-it:free",
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "stop",
+        "message": {
+          "role": "assistant",
+          "content": "{\"grade\": \"supported\", \"evidence\": \"Participants slept 7.1 hours on average.\", \"reason\": \"The source states the same average.\"}"
+        }
+      }
+    ]
+  }
+}
