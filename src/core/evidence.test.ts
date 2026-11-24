@@ -70,6 +70,30 @@ describe("checkEvidence", () => {
     });
   });
 
+  it("does not treat an abbreviation as the start of a sentence", () => {
+    const source = "We found no evidence that e.g. fasting raises resting metabolic rate in adults.";
+    expect(checkEvidence("fasting raises resting metabolic rate in adults.", source)).toEqual({
+      ok: false,
+      reason: "not_full_sentence",
+    });
+  });
+
+  it("does not treat an abbreviation as the end of a sentence", () => {
+    const source = "Benefits were seen in some fruit, e.g. apples, but not in pears. Next sentence here.";
+    expect(checkEvidence("Benefits were seen in some fruit, e.g.", source)).toEqual({
+      ok: false,
+      reason: "not_full_sentence",
+    });
+  });
+
+  it("accepts a whole sentence quoted without the citation marker that follows it", () => {
+    const source = "Naps improved recall on the same day.[3] Longer naps caused grogginess.";
+    expect(checkEvidence("Naps improved recall on the same day.", source)).toMatchObject({
+      ok: true,
+      after: "Longer naps caused grogginess.",
+    });
+  });
+
   it("rejects a quote that stops in the middle of a sentence", () => {
     expect(checkEvidence("Participants slept 7.1 hours", SOURCE)).toEqual({
       ok: false,

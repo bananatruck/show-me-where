@@ -1,4 +1,4 @@
-import { splitSentences } from "./claims";
+import { sentenceSpans } from "./claims";
 
 /** A quoted piece of evidence must be at least this long after normalisation. */
 export const MIN_EVIDENCE_LENGTH = 20;
@@ -41,16 +41,6 @@ export type EvidenceCheck =
   | { ok: true; before: string; after: string }
   | { ok: false; reason: "too_short" | "not_found" | "not_full_sentence" };
 
-const SENTENCE_END = /[.!?]["')\]]*$/;
-
-function startsSentence(source: string, at: number): boolean {
-  return at === 0 || /[.!?]["')\]]*\s$/.test(source.slice(Math.max(0, at - 4), at));
-}
-
-function endsSentence(source: string, quote: string, end: number): boolean {
-  return end === source.length || (SENTENCE_END.test(quote) && /^\s/.test(source.slice(end)));
-}
-
 function stripOuterQuotes(quote: string): string {
   const m = /^"(.*)"$/s.exec(quote);
   return m?.[1]?.trim() ?? quote;
@@ -68,16 +58,22 @@ export function checkEvidence(quote: string, source: string): EvidenceCheck {
     return { ok: false, reason: "too_short" };
   }
   const s = normalizeForMatch(source);
+  const spans = sentenceSpans(s);
+  const sentence = (k: number) => {
+    const span = spans[k];
+    return span ? s.slice(span.start, span.end) : "";
+  };
   let found = false;
   for (let at = s.indexOf(q); at !== -1; at = s.indexOf(q, at + 1)) {
     found = true;
     const end = at + q.length;
-    if (startsSentence(s, at) && endsSentence(s, q, end)) {
-      return {
-        ok: true,
-        before: splitSentences(s.slice(0, at)).at(-1) ?? "",
-        after: splitSentences(s.slice(end)).at(0) ?? "",
-      };
+    // The quote must start where a sentence starts and end where a sentence
+    // ends (with or without the citation markers after it), using the same
+    // abbreviation-aware splitter as the claims, so "e.g." is never a boundary.
+    const first = spans.findIndex((span) => span.start === at);
+    const last = spans.findIndex((span) => span.stop === end || span.end === end);
+    if (first !== -1 && last >= first) {
+      return { ok: true, before: sentence(first - 1), after: sentence(last + 1) };
     }
   }
   return { ok: false, reason: found ? "not_full_sentence" : "not_found" };
