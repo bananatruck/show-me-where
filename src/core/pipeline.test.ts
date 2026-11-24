@@ -57,6 +57,31 @@ describe("resolveSources", () => {
 });
 
 describe("runCheck", () => {
+  it("sends the scope of each citation and a fenced source to the model", async () => {
+    const analysis = analyzeText(
+      "Memory scores rose sharply [1], while reaction times did not change at all [2].\nReferences\n[1] A.\n[2] B.",
+    );
+    const users: string[] = [];
+    const provider: ModelProvider = {
+      label: "spy",
+      async complete(request) {
+        users.push(request.user);
+        return JSON.stringify({ grade: "cannot_tell", evidence: "", reason: "r" });
+      },
+    };
+    await runCheck(
+      analysis,
+      {
+        1: { status: "ok", text: "Source one.", origin: "pasted" },
+        2: { status: "ok", text: "Source two.", origin: "pasted" },
+      },
+      provider,
+    );
+    expect(users[0]).toContain("PART CITED TO THIS SOURCE:\nMemory scores rose sharply\n");
+    expect(users[1]).toContain("PART CITED TO THIS SOURCE:\nwhile reaction times did not change at all\n");
+    expect(users[1]).toMatch(/<source-[0-9a-f]{12}>\nSource two.\n<\/source-[0-9a-f]{12}>/);
+  });
+
   it("grades the synthetic sample, including one discarded grade", async () => {
     const analysis = analyzeText(SAMPLE_RUN.text);
     const report = await runCheck(analysis, sampleSources(), createReplayProvider(SAMPLE_RUN.replies));
@@ -101,7 +126,7 @@ describe("runCheck", () => {
     expect(report.results[0]?.perSource[0]?.judgement.reason).toBe("No DOI.");
   });
 
-  it("records a failed model call as cannot_tell and keeps going", async () => {
+  it("records a failed model call as check_failed and keeps going", async () => {
     const analysis = analyzeText("A [1]. B [1].\nReferences\n[1] X.");
     let n = 0;
     const provider: ModelProvider = {
@@ -117,6 +142,10 @@ describe("runCheck", () => {
       { 1: { status: "ok", text: "Some source text here.", origin: "pasted" } },
       provider,
     );
+    expect(report.results.map((r) => r.perSource[0]?.judgement.grade)).toEqual([
+      "check_failed",
+      "cannot_tell",
+    ]);
     expect(report.results.map((r) => r.perSource[0]?.judgement.reason)).toEqual([
       "The model call failed: Slow down.",
       "Not covered.",

@@ -2,18 +2,21 @@ import { useState } from "react";
 import { analyzeText, resolveSources, runCheck, type Analysis, type CheckReport } from "./core/pipeline";
 import { createOpenRouterProvider, createReplayProvider } from "./core/provider";
 import { fetchSourceByDoi } from "./core/sources";
-import type { Grade, SourceText } from "./core/types";
+import type { Headline } from "./core/grading";
+import type { SourceText } from "./core/types";
 import { SAMPLE_RUN } from "./fixtures/sample";
 import { loadKey, saveKey } from "./keyStore";
 
 type Mode = "sample" | "live";
 
-const GRADE_LABEL: Record<Grade, string> = {
+const GRADE_LABEL: Record<Headline, string> = {
   supported: "Supported",
   partly_supported: "Partly supported",
   not_supported: "Not supported",
   cannot_tell: "Cannot tell",
   source_not_reachable: "Source not reachable",
+  check_failed: "Check failed",
+  sources_disagree: "Sources disagree",
 };
 
 /** A free model listed by OpenRouter on 2026-11-24; free ids change, so the field is editable. */

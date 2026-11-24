@@ -1,13 +1,17 @@
-/** The five outcomes a claim can have. */
+/** The outcomes one claim can have against one source. */
 export type Grade =
   | "supported"
   | "partly_supported"
   | "not_supported"
   | "cannot_tell"
-  | "source_not_reachable";
+  | "source_not_reachable"
+  | "check_failed";
 
-/** Grades the model may give; the app alone decides "source_not_reachable". */
-export type ModelGrade = Exclude<Grade, "source_not_reachable">;
+/**
+ * Grades the model may give. The app alone decides "source_not_reachable"
+ * (no source text) and "check_failed" (the model call itself failed).
+ */
+export type ModelGrade = Exclude<Grade, "source_not_reachable" | "check_failed">;
 
 /** Numeric "[1]" citations, or APA-style "(Smith, 2020)" citations. */
 export type CitationStyle = "numeric" | "author_year";

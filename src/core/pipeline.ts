@@ -1,5 +1,12 @@
 import { extractClaims } from "./claims";
-import { buildPrompt, headlineGrade, judgeReply, type Judgement } from "./grading";
+import {
+  buildPrompt,
+  headlineGrade,
+  judgeReply,
+  randomTag,
+  type Headline,
+  type Judgement,
+} from "./grading";
 import { ProviderError, type ModelProvider } from "./provider";
 import { parseReferences, splitDocument } from "./references";
 import type { CitationStyle, Claim, Grade, Reference, SourceText } from "./types";
@@ -60,7 +67,7 @@ export async function resolveSources(
 
 export interface ClaimResult {
   claim: Claim;
-  headline: Grade;
+  headline: Headline;
   perSource: { ref: number; judgement: Judgement }[];
 }
 
@@ -72,18 +79,23 @@ export interface CheckReport {
 /**
  * Grades every claim against every source it cites, one model call at a time
  * to stay inside free-tier rate limits. A rejected key stops the run; any
- * other failed call is recorded as cannot_tell.
+ * other failed call is recorded as check_failed, never as a grade.
  */
 export async function runCheck(
   analysis: Analysis,
   sources: Readonly<Record<number, SourceText>>,
   provider: ModelProvider,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<CheckReport> {
+  const total = analysis.claims.reduce((n, c) => n + c.refs.length, 0);
+  let done = 0;
   const results: ClaimResult[] = [];
   for (const claim of analysis.claims) {
     const perSource: ClaimResult["perSource"] = [];
     for (const ref of claim.refs) {
       perSource.push({ ref, judgement: await judgeOne(claim, ref, sources[ref], provider) });
+      done += 1;
+      onProgress?.(done, total);
     }
     results.push({
       claim,
@@ -94,6 +106,10 @@ export async function runCheck(
   return { results, modelLabel: provider.label };
 }
 
+function appVerdict(grade: Grade, reason: string): Judgement {
+  return { grade, evidence: null, context: null, reason, warnings: [], discarded: null };
+}
+
 async function judgeOne(
   claim: Claim,
   ref: number,
@@ -101,26 +117,22 @@ async function judgeOne(
   provider: ModelProvider,
 ): Promise<Judgement> {
   if (!source || source.status === "unreachable") {
-    return {
-      grade: "source_not_reachable",
-      evidence: null,
-      reason: source?.reason ?? NO_DOI_REASON,
-      discarded: null,
-    };
+    return appVerdict("source_not_reachable", source?.reason ?? NO_DOI_REASON);
   }
-  const { system, user } = buildPrompt(claim.text, source.text);
+  const scope = claim.scopes[ref] ?? claim.text;
+  const { system, user } = buildPrompt({
+    sentence: claim.text,
+    scope,
+    source: source.text,
+    tag: randomTag(),
+  });
   let raw: string;
   try {
     raw = await provider.complete({ key: `${claim.id}:${ref}`, system, user });
   } catch (error) {
     if (error instanceof ProviderError && error.kind === "auth") throw error;
     const message = error instanceof Error ? error.message : String(error);
-    return {
-      grade: "cannot_tell",
-      evidence: null,
-      reason: `The model call failed: ${message}`,
-      discarded: null,
-    };
+    return appVerdict("check_failed", `The model call failed: ${message}`);
   }
-  return judgeReply(raw, source.text);
+  return judgeReply(raw, source.text, scope);
 }
