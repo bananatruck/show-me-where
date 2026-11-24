@@ -241,6 +241,25 @@ const MIN_SCOPE_WORDS = 3;
 const SHARED_FRAME =
   /\b(?:no|not|never|none|neither|nor|without|cannot|unlikely|unclear|whether|if|that|may|might|could)\b|n't\b/i;
 
+/** Words that cannot begin a subject: adverbs, prepositions and negations. */
+const NOT_A_SUBJECT = new Set(
+  "not no also only still then thus so in on at for with to by from of as being having more less even yet instead rather especially mainly mostly particularly notably".split(
+    " ",
+  ),
+);
+
+/**
+ * Whether a later part, after its opener, starts with something that can be
+ * a subject: "while reaction times did not change" does, but "while reducing
+ * mortality" and "but not in older patients" lean on the first part's subject.
+ */
+function opensWithSubject(part: string): boolean {
+  const rest = part.replace(CLAUSE_OPENER, "");
+  const first = /[\p{L}\p{N}]+/u.exec(rest)?.[0]?.toLowerCase();
+  if (!first) return false;
+  return !NOT_A_SUBJECT.has(first) && !/(?:ing|ed)$/.test(first);
+}
+
 /** How a later part of a sentence must open to stand as its own clause. */
 const CLAUSE_OPENER = /^\s*(?:;|,?\s*(?:while|whereas|but|although|though|however)\b)/i;
 
@@ -277,7 +296,7 @@ function scopesFor(sentence: string, citations: readonly Citation[], text: strin
     if (k === 0 && SHARED_FRAME.test(raw)) return whole;
     // A later part must open a clause of its own ("; ...", ", while ...");
     // "or reduces mortality" leans on the first part's subject and frame.
-    if (k > 0 && !CLAUSE_OPENER.test(raw)) return whole;
+    if (k > 0 && !(CLAUSE_OPENER.test(raw) && opensWithSubject(raw))) return whole;
     const segment = tidy(raw).replace(/^[,;:]\s*/, "");
     if (segment.split(/\s+/).filter(Boolean).length < MIN_SCOPE_WORDS) return whole;
     for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : segment;

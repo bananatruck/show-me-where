@@ -152,6 +152,9 @@ describe("extractClaims", () => {
     "No evidence shows that Drug X improves survival [1] or reduces mortality [2].",
     "Drug X improves survival in older adults [1] and reduces mortality in younger ones [2].",
     "It is unlikely that coffee improves memory [1], while tea improves sleep quality [2].",
+    "Drug X improves survival [1], while reducing mortality in adults [2].",
+    "Drug X improves survival in adults [1], but not in older patients overall [2].",
+    "Drug X improves survival in adults [1], while also lowering mortality rates [2].",
   ])("uses the whole sentence when the parts share a frame or subject: %j", (sentence) => {
     const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
     const text = claims[0]?.text ?? "";
