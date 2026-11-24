@@ -175,8 +175,20 @@ describe("judgeReply", () => {
 });
 
 describe("headlineGrade", () => {
-  it("picks the best evidenced grade across agreeing sources", () => {
-    expect(headlineGrade(["cannot_tell", "partly_supported"])).toBe("partly_supported");
+  it("uses one source's grade, and the weakest backing grade when every source backs the claim", () => {
+    expect(headlineGrade(["supported"])).toBe("supported");
+    expect(headlineGrade(["supported", "supported"])).toBe("supported");
+    expect(headlineGrade(["supported", "partly_supported"])).toBe("partly_supported");
+  });
+
+  it("never shows a backing grade when another cited source could not back the claim", () => {
+    expect(headlineGrade(["supported", "cannot_tell"])).toBe("not_every_source_backs_it");
+    expect(headlineGrade(["partly_supported", "source_not_reachable"])).toBe("not_every_source_backs_it");
+    expect(headlineGrade(["supported", "check_failed"])).toBe("not_every_source_backs_it");
+  });
+
+  it("picks the best evidenced outcome when no source backs the claim", () => {
+    expect(headlineGrade(["not_supported", "cannot_tell"])).toBe("not_supported");
     expect(headlineGrade(["source_not_reachable", "cannot_tell"])).toBe("cannot_tell");
     expect(headlineGrade(["source_not_reachable", "check_failed"])).toBe("check_failed");
     expect(headlineGrade(["source_not_reachable"])).toBe("source_not_reachable");

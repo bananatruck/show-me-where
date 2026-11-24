@@ -245,12 +245,13 @@ export function judgeReply(raw: string, source: string, claimScope: string): Jud
   };
 }
 
-/** What a claim shows at the top: a grade, or that its sources disagree. */
-export type Headline = Grade | "sources_disagree";
+/**
+ * What a claim shows at the top: a grade, that its sources disagree, or that
+ * not every cited source backs it.
+ */
+export type Headline = Grade | "sources_disagree" | "not_every_source_backs_it";
 
-const HEADLINE_ORDER: readonly Grade[] = [
-  "supported",
-  "partly_supported",
+const UNBACKED_ORDER: readonly Grade[] = [
   "not_supported",
   "cannot_tell",
   "check_failed",
@@ -258,13 +259,21 @@ const HEADLINE_ORDER: readonly Grade[] = [
 ];
 
 /**
- * The best evidenced grade across a claim's sources, except that a source
- * that contradicts the claim is never hidden behind one that supports it.
+ * A claim's headline across its sources. A backing grade is shown only when
+ * every cited source backs the claim, and then the weakest of them; a source
+ * that contradicts the claim, or one that could not be read or checked, is
+ * never hidden behind one that supports it.
  */
 export function headlineGrade(grades: readonly Grade[]): Headline {
-  const backed = grades.includes("supported") || grades.includes("partly_supported");
-  if (backed && grades.includes("not_supported")) return "sources_disagree";
-  for (const grade of HEADLINE_ORDER) {
+  if (grades.length === 0) return "source_not_reachable";
+  const backing = (g: Grade) => g === "supported" || g === "partly_supported";
+  if (grades.every(backing)) {
+    return grades.includes("partly_supported") ? "partly_supported" : "supported";
+  }
+  if (grades.some(backing)) {
+    return grades.includes("not_supported") ? "sources_disagree" : "not_every_source_backs_it";
+  }
+  for (const grade of UNBACKED_ORDER) {
     if (grades.includes(grade)) return grade;
   }
   return "source_not_reachable";

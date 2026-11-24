@@ -12,6 +12,7 @@ export const HEADLINE_TEXT: Record<Headline, string> = {
   source_not_reachable: "Source not reachable",
   check_failed: "Check failed",
   sources_disagree: "Sources disagree",
+  not_every_source_backs_it: "Not every cited source backs it",
 };
 
 const SHORT_GRADE: Record<Headline, string> = {
@@ -22,6 +23,7 @@ const SHORT_GRADE: Record<Headline, string> = {
   source_not_reachable: "Source not reachable",
   check_failed: "Check failed",
   sources_disagree: "Sources disagree",
+  not_every_source_backs_it: "Not every cited source backs it",
 };
 
 export function originText(source: SourceText | undefined): string {

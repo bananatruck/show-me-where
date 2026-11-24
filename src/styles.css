@@ -367,7 +367,8 @@ h3 {
 .verdict[data-grade="supported"] { color: var(--supported); }
 .verdict[data-grade="partly_supported"] { color: var(--partly); }
 .verdict[data-grade="not_supported"] { color: var(--against); }
-.verdict[data-grade="sources_disagree"] { color: var(--disagree); }
+.verdict[data-grade="sources_disagree"],
+.verdict[data-grade="not_every_source_backs_it"] { color: var(--disagree); }
 .verdict[data-grade="cannot_tell"],
 .verdict[data-grade="check_failed"],
 .verdict[data-grade="source_not_reachable"] { color: var(--unsure); }
