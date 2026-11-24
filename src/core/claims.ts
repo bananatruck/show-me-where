@@ -129,12 +129,13 @@ function expandMarker(inner: string): number[] | null {
   const out: number[] = [];
   for (const part of inner.split(",")) {
     const [a, b] = part.split(/[-\u2013]/).map((s) => Number(s.trim()));
-    if (a === undefined || !Number.isInteger(a)) return null;
+    // Safe integers only: past 2^53, n += 1 no longer changes n and the loop never ends.
+    if (a === undefined || !Number.isSafeInteger(a)) return null;
     if (b === undefined) {
       out.push(a);
       continue;
     }
-    if (!Number.isInteger(b) || b < a || b - a > MAX_RANGE) return null;
+    if (!Number.isSafeInteger(b) || b < a || b - a > MAX_RANGE) return null;
     for (let n = a; n <= b; n += 1) out.push(n);
   }
   return out;

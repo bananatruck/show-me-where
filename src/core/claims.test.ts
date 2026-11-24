@@ -78,6 +78,13 @@ describe("parseMarkers", () => {
     });
   });
 
+  it("ignores a range whose ends are not safe integers instead of looping forever", () => {
+    expect(parseMarkers("A [9007199254740992-9007199254740992].", known)).toEqual({
+      refs: [],
+      text: "A [9007199254740992-9007199254740992].",
+    });
+  });
+
   it("ignores a reversed or oversized range", () => {
     expect(parseMarkers("A [3-1] B [1-999].", known)).toEqual({
       refs: [],
