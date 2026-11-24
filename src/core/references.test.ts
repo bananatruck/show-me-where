@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractDoi, parseReferences, splitDocument } from "./references";
+import { extractDoi, parseNumericReferences, parseReferences, splitDocument } from "./references";
 
 describe("splitDocument", () => {
   it("splits body and reference list at a References heading", () => {
@@ -50,30 +50,52 @@ describe("extractDoi", () => {
   });
 });
 
-describe("parseReferences", () => {
+describe("parseNumericReferences", () => {
   it("parses numbered entries with continuation lines", () => {
     const list = [
       "[1] A. Author. First paper.",
       "    Journal, 2020. doi:10.1000/one",
       "[2] B. Author. Second paper. No DOI.",
     ].join("\n");
-    expect(parseReferences(list)).toEqual([
+    expect(parseNumericReferences(list)).toEqual([
       {
         number: 1,
         raw: "A. Author. First paper. Journal, 2020. doi:10.1000/one",
         doi: "10.1000/one",
+        label: "[1]",
+        authors: [],
+        year: null,
       },
-      { number: 2, raw: "B. Author. Second paper. No DOI.", doi: null },
+      {
+        number: 2,
+        raw: "B. Author. Second paper. No DOI.",
+        doi: null,
+        label: "[2]",
+        authors: [],
+        year: null,
+      },
     ]);
   });
 
   it("ignores text before the first numbered entry", () => {
-    expect(parseReferences("Some note\n[3] C.")).toEqual([
-      { number: 3, raw: "C.", doi: null },
+    expect(parseNumericReferences("Some note\n[3] C.")).toEqual([
+      { number: 3, raw: "C.", doi: null, label: "[3]", authors: [], year: null },
     ]);
   });
 
   it("returns an empty list for an empty reference list", () => {
-    expect(parseReferences("")).toEqual([]);
+    expect(parseNumericReferences("")).toEqual([]);
+  });
+});
+
+describe("parseReferences", () => {
+  it("detects numeric style from a bracketed entry", () => {
+    expect(parseReferences("[1] A. Paper.").style).toBe("numeric");
+  });
+
+  it("detects author-year style otherwise", () => {
+    const { style, references } = parseReferences("Smith, J. (2020). A paper.");
+    expect(style).toBe("author_year");
+    expect(references[0]?.label).toBe("Smith, 2020");
   });
 });

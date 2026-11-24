@@ -20,7 +20,10 @@ describe("analyzeText", () => {
     );
     expect(analysis.claims.map((c) => [c.id, c.refs])).toEqual([["c1", [1]]]);
     expect(analysis.uncited).toEqual(["B holds [2].", "C is plain."]);
-    expect(analysis.references).toEqual([{ number: 1, raw: "X. doi:10.1000/x", doi: "10.1000/x" }]);
+    expect(analysis.style).toBe("numeric");
+    expect(analysis.references).toEqual([
+      { number: 1, raw: "X. doi:10.1000/x", doi: "10.1000/x", label: "[1]", authors: [], year: null },
+    ]);
   });
 });
 

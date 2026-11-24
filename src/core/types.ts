@@ -9,22 +9,38 @@ export type Grade =
 /** Grades the model may give; the app alone decides "source_not_reachable". */
 export type ModelGrade = Exclude<Grade, "source_not_reachable">;
 
-/** One entry of the reference list, such as "[1] Author. Title. doi:10.1/x". */
+/** Numeric "[1]" citations, or APA-style "(Smith, 2020)" citations. */
+export type CitationStyle = "numeric" | "author_year";
+
+/** One entry of the reference list. */
 export interface Reference {
+  /** The bracket number in numeric style; the 1-based position in the list in author-year style. */
   number: number;
   raw: string;
   doi: string | null;
+  /** How the app names this source: "[1]" or "Smith & Jones, 2020". */
+  label: string;
+  /** Surnames in author-year style; empty in numeric style. */
+  authors: string[];
+  /** Year in author-year style, such as "2020", "2019a" or "n.d."; null in numeric style. */
+  year: string | null;
 }
 
 /** One cited sentence from the body text. */
 export interface Claim {
   id: string;
-  /** The sentence with its citation markers removed. */
+  /** The sentence with its parenthetical citations removed. */
   text: string;
   /** The sentence exactly as it appeared in the input. */
   sentence: string;
   /** Reference numbers this sentence cites, in ascending order. */
   refs: number[];
+  /**
+   * For each cited reference, the part of the sentence that citation is
+   * attached to. Equals text unless the sentence cites different sources for
+   * different parts, as in "A rose (Smith, 2020) while B fell (Lee, 2019)".
+   */
+  scopes: Record<number, string>;
 }
 
 /**

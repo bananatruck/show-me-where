@@ -1,4 +1,8 @@
-import type { Reference } from "./types";
+import { parseAuthorYearReferences } from "./authorYear";
+import { extractDoi } from "./doi";
+import type { CitationStyle, Reference } from "./types";
+
+export { extractDoi };
 
 const HEADING = /^\s*(references|bibliography|works cited)\s*:?\s*$/i;
 
@@ -21,41 +25,24 @@ export function splitDocument(text: string): { body: string; referenceList: stri
   };
 }
 
-const DOI = /10\.\d{4,9}\/[^\s"<>]+/;
-
-/** Removes punctuation that ends the sentence around a DOI but is not part of it. */
-function trimDoi(doi: string): string {
-  let out = doi;
-  for (;;) {
-    const last = out.at(-1);
-    if (last === undefined) return out;
-    if (".,;:".includes(last)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    const pair = last === ")" ? "(" : last === "]" ? "[" : null;
-    if (pair && count(out, last) > count(out, pair)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    return out;
-  }
-}
-
-function count(text: string, ch: string): number {
-  return text.split(ch).length - 1;
-}
-
-/** Finds a DOI written bare, after "doi:", or inside a doi.org link. */
-export function extractDoi(entry: string): string | null {
-  const match = DOI.exec(entry);
-  return match ? trimDoi(match[0]) : null;
-}
-
 const ENTRY_START = /^\s*\[(\d+)\]\s*(.*)$/;
 
+/**
+ * Parses the reference list. Numeric style when any entry starts with "[n]",
+ * author-year (APA) style otherwise.
+ */
+export function parseReferences(referenceList: string): {
+  style: CitationStyle;
+  references: Reference[];
+} {
+  if (referenceList.split(/\r?\n/).some((line) => ENTRY_START.test(line))) {
+    return { style: "numeric", references: parseNumericReferences(referenceList) };
+  }
+  return { style: "author_year", references: parseAuthorYearReferences(referenceList) };
+}
+
 /** Parses entries that each start with their number in brackets, such as "[1]". */
-export function parseReferences(referenceList: string): Reference[] {
+export function parseNumericReferences(referenceList: string): Reference[] {
   const refs: { number: number; parts: string[] }[] = [];
   for (const line of referenceList.split(/\r?\n/)) {
     const start = ENTRY_START.exec(line);
@@ -67,6 +54,6 @@ export function parseReferences(referenceList: string): Reference[] {
   }
   return refs.map(({ number, parts }) => {
     const raw = parts.join(" ").replace(/\s+/g, " ").trim();
-    return { number, raw, doi: extractDoi(raw) };
+    return { number, raw, doi: extractDoi(raw), label: `[${number}]`, authors: [], year: null };
   });
 }

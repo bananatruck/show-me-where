@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { parseAuthorYearReferences } from "./authorYear";
 import { extractClaims, parseMarkers, splitSentences } from "./claims";
+import type { Reference } from "./types";
 
 describe("splitSentences", () => {
   it("splits on sentence-ending punctuation followed by a capital", () => {
@@ -73,26 +75,84 @@ describe("parseMarkers", () => {
   });
 });
 
+function numericRefs(numbers: number[]): Reference[] {
+  return numbers.map((n) => ({ number: n, raw: `Ref ${n}`, doi: null, label: `[${n}]`, authors: [], year: null }));
+}
+
 describe("extractClaims", () => {
   it("returns cited sentences as claims and lists uncited ones", () => {
     const body =
       "Sleep improves memory [1]. This matters for students. Naps help too [2, 3].";
-    expect(extractClaims(body, new Set([1, 2, 3]))).toEqual({
+    expect(extractClaims(body, "numeric", numericRefs([1, 2, 3]))).toEqual({
       claims: [
         {
           id: "c1",
           text: "Sleep improves memory.",
           sentence: "Sleep improves memory [1].",
           refs: [1],
+          scopes: { 1: "Sleep improves memory." },
         },
         {
           id: "c2",
           text: "Naps help too.",
           sentence: "Naps help too [2, 3].",
           refs: [2, 3],
+          scopes: { 2: "Naps help too.", 3: "Naps help too." },
         },
       ],
       uncited: ["This matters for students."],
+      unresolved: [],
+    });
+  });
+
+  it("scopes each citation to the part of the sentence it follows", () => {
+    const { claims } = extractClaims(
+      "Memory scores rose sharply [1], while reaction times did not change at all [2].",
+      "numeric",
+      numericRefs([1, 2]),
+    );
+    expect(claims[0]?.scopes).toEqual({
+      1: "Memory scores rose sharply",
+      2: "while reaction times did not change at all",
+    });
+  });
+
+  it("falls back to the whole sentence when a scope would be too short", () => {
+    const { claims } = extractClaims("Naps [1] help recall [2].", "numeric", numericRefs([1, 2]));
+    expect(claims[0]?.scopes).toEqual({ 1: "Naps help recall.", 2: "Naps help recall." });
+  });
+
+  it("reads author-year citations, keeps narrative ones in the text, and reports unresolved ones", () => {
+    const references = parseAuthorYearReferences(
+      [
+        "Smith, J. A., & Jones, B. (2020). Sleep and memory.",
+        "Lee, C., Park, D., & Kim, E. (2019). Naps and recall.",
+      ].join("\n"),
+    );
+    const body = [
+      "Smith and Jones (2020) found that sleep improves memory.",
+      "Naps also help recall (Lee et al., 2019, p. 4; Smith & Jones, 2020).",
+      "Caffeine hurts sleep (Brown, 2018).",
+    ].join(" ");
+    expect(extractClaims(body, "author_year", references)).toEqual({
+      claims: [
+        {
+          id: "c1",
+          text: "Smith and Jones (2020) found that sleep improves memory.",
+          sentence: "Smith and Jones (2020) found that sleep improves memory.",
+          refs: [1],
+          scopes: { 1: "Smith and Jones (2020) found that sleep improves memory." },
+        },
+        {
+          id: "c2",
+          text: "Naps also help recall.",
+          sentence: "Naps also help recall (Lee et al., 2019, p. 4; Smith & Jones, 2020).",
+          refs: [1, 2],
+          scopes: { 1: "Naps also help recall.", 2: "Naps also help recall." },
+        },
+      ],
+      uncited: ["Caffeine hurts sleep (Brown, 2018)."],
+      unresolved: ["Brown, 2018"],
     });
   });
 });

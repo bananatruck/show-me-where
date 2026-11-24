@@ -1,4 +1,5 @@
-import type { Claim } from "./types";
+import { findAuthorYearCitations, type Citation } from "./authorYear";
+import type { CitationStyle, Claim, Reference } from "./types";
 
 /** Words that end in a full stop without ending the sentence. */
 const ABBREVIATIONS = new Set([
@@ -15,7 +16,9 @@ const ABBREVIATIONS = new Set([
   "eqs",
   "no",
   "vol",
+  "p",
   "pp",
+  "para",
   "ref",
   "refs",
   "dr",
@@ -98,39 +101,113 @@ function expandMarker(inner: string): number[] | null {
  * Finds numeric bracket citations. A marker counts only when every number in
  * it is a known reference; otherwise it is left in the text.
  */
+export function findNumericCitations(
+  sentence: string,
+  knownRefs: ReadonlySet<number>,
+): Citation[] {
+  const citations: Citation[] = [];
+  for (const match of sentence.matchAll(MARKER)) {
+    const numbers = expandMarker(match[1] ?? "");
+    if (!numbers || numbers.length === 0 || !numbers.every((n) => knownRefs.has(n))) continue;
+    citations.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      refs: [...new Set(numbers)].sort((a, b) => a - b),
+      narrative: false,
+    });
+  }
+  return citations;
+}
+
+function tidy(text: string): string {
+  return text.replace(/\s+([.,;:!?])/g, "$1").replace(/\s+/g, " ").trim();
+}
+
+/** Removes the given citation spans from a sentence. */
+function removeSpans(sentence: string, spans: readonly Citation[]): string {
+  let out = "";
+  let at = 0;
+  for (const span of spans) {
+    out += sentence.slice(at, span.start);
+    at = span.end;
+  }
+  return out + sentence.slice(at);
+}
+
+const MIN_SCOPE_WORDS = 3;
+
+/**
+ * The part of the sentence each citation is attached to: the text between the
+ * previous parenthetical citation and this one. Narrative citations, repeated
+ * references, a single citation group, and scopes under three words all fall
+ * back to the whole sentence.
+ */
+function scopesFor(sentence: string, citations: readonly Citation[], text: string): Record<number, string> {
+  const scopes: Record<number, string> = {};
+  const removable = citations.filter((c) => !c.narrative);
+  const seen = new Map<number, number>();
+  for (const c of citations) for (const r of c.refs) seen.set(r, (seen.get(r) ?? 0) + 1);
+
+  let previousEnd = 0;
+  for (const c of citations) {
+    let scope = text;
+    if (!c.narrative && removable.length > 1) {
+      const inner = removable.filter((o) => o.start >= previousEnd && o.end <= c.start);
+      const segment = tidy(removeSpans(sentence.slice(0, c.start), inner).slice(previousEnd)).replace(
+        /^[,;:]\s*/,
+        "",
+      );
+      if (segment.split(/\s+/).filter(Boolean).length >= MIN_SCOPE_WORDS) scope = segment;
+    }
+    if (!c.narrative) previousEnd = c.end;
+    for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : scope;
+  }
+  return scopes;
+}
+
+/** Numeric citations removed from a sentence, kept for the marker grammar tests. */
 export function parseMarkers(
   sentence: string,
   knownRefs: ReadonlySet<number>,
 ): { refs: number[]; text: string } {
-  const refs = new Set<number>();
-  const text = sentence.replace(MARKER, (whole, inner: string) => {
-    const numbers = expandMarker(inner);
-    if (!numbers || numbers.length === 0 || !numbers.every((n) => knownRefs.has(n))) {
-      return whole;
-    }
-    numbers.forEach((n) => refs.add(n));
-    return "";
-  });
+  const citations = findNumericCitations(sentence, knownRefs);
   return {
-    refs: [...refs].sort((a, b) => a - b),
-    text: text.replace(/\s+([.,;:!?])/g, "$1").replace(/\s+/g, " ").trim(),
+    refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
+    text: tidy(removeSpans(sentence, citations)),
   };
 }
 
-/** Builds the claim list: every sentence with at least one known citation. */
+/** Builds the claim list: every sentence with at least one resolved citation. */
 export function extractClaims(
   body: string,
-  knownRefs: ReadonlySet<number>,
-): { claims: Claim[]; uncited: string[] } {
+  style: CitationStyle,
+  references: readonly Reference[],
+): { claims: Claim[]; uncited: string[]; unresolved: string[] } {
+  const known = new Set(references.map((r) => r.number));
   const claims: Claim[] = [];
   const uncited: string[] = [];
+  const unresolved: string[] = [];
   for (const sentence of splitSentences(body)) {
-    const { refs, text } = parseMarkers(sentence, knownRefs);
-    if (refs.length === 0) {
-      uncited.push(sentence);
+    let citations: Citation[];
+    if (style === "numeric") {
+      citations = findNumericCitations(sentence, known);
     } else {
-      claims.push({ id: `c${claims.length + 1}`, text, sentence, refs });
+      const found = findAuthorYearCitations(sentence, references);
+      citations = found.citations;
+      unresolved.push(...found.unresolved);
     }
+    if (citations.length === 0) {
+      uncited.push(sentence);
+      continue;
+    }
+    const text = tidy(removeSpans(sentence, citations.filter((c) => !c.narrative)));
+    claims.push({
+      id: `c${claims.length + 1}`,
+      text,
+      sentence,
+      refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
+      scopes: scopesFor(sentence, citations, text),
+    });
   }
-  return { claims, uncited };
+  return { claims, uncited, unresolved: [...new Set(unresolved)] };
 }

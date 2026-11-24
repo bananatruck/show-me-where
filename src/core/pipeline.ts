@@ -2,12 +2,15 @@ import { extractClaims } from "./claims";
 import { buildPrompt, headlineGrade, judgeReply, type Judgement } from "./grading";
 import { ProviderError, type ModelProvider } from "./provider";
 import { parseReferences, splitDocument } from "./references";
-import type { Claim, Grade, Reference, SourceText } from "./types";
+import type { CitationStyle, Claim, Grade, Reference, SourceText } from "./types";
 
 /** What the app found in the pasted text, before anything leaves the browser. */
 export interface Analysis {
+  style: CitationStyle;
   claims: Claim[];
   uncited: string[];
+  /** In-text citations that match no single reference, such as "Brown, 2018". */
+  unresolved: string[];
   references: Reference[];
   /** Reference numbers cited by at least one claim, ascending. */
   citedRefs: number[];
@@ -16,11 +19,17 @@ export interface Analysis {
 /** Deterministic step: split the text into claims and parse the reference list. */
 export function analyzeText(text: string): Analysis {
   const { body, referenceList } = splitDocument(text);
-  const references = parseReferences(referenceList);
-  const known = new Set(references.map((r) => r.number));
-  const { claims, uncited } = extractClaims(body, known);
+  const { style, references } = parseReferences(referenceList);
+  const { claims, uncited, unresolved } = extractClaims(body, style, references);
   const cited = new Set(claims.flatMap((c) => c.refs));
-  return { claims, uncited, references, citedRefs: [...cited].sort((a, b) => a - b) };
+  return {
+    style,
+    claims,
+    uncited,
+    unresolved,
+    references,
+    citedRefs: [...cited].sort((a, b) => a - b),
+  };
 }
 
 export const NO_DOI_REASON = "No DOI found in this reference. Paste the source text instead.";
