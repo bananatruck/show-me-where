@@ -28,9 +28,9 @@ function sampleSources(): Record<number, SourceText> {
 
 const browserFetch: FetchLike = (input, init) => window.fetch(input, init);
 /** A slow source service is treated as unreachable, so the lookup moves on. */
-const sourceFetch = withTimeout(browserFetch, 20_000);
+const SOURCE_TIMEOUT_MS = 20_000;
 /** Free models can be slow; a call that hangs longer than this becomes "check failed". */
-const modelFetch = withTimeout(browserFetch, 120_000);
+const MODEL_TIMEOUT_MS = 120_000;
 
 /** Problems found in step 1, worded as what to do next. */
 function analysisProblem(text: string, analysis: Analysis): string | null {
@@ -66,6 +66,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   /** Identifies the newest check; a check that is no longer newest must not write state. */
   const runRef = useRef(0);
+  /** Aborts the newest check's outside requests when that check is superseded. */
+  const abortRef = useRef<AbortController | null>(null);
   const step2Ref = useRef<HTMLHeadingElement>(null);
   const step3Ref = useRef<HTMLHeadingElement>(null);
 
@@ -89,8 +91,11 @@ export function App() {
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
   function reset() {
-    // Any check still running belongs to the text being replaced; disown it.
+    // Any check still running belongs to the text being replaced; disown it
+    // and cancel its requests, so no more claims or key leave the browser.
     runRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
     setBusy(false);
     setAnalysis(null);
     setProblem(null);
@@ -124,6 +129,10 @@ export function App() {
     runRef.current += 1;
     const run = runRef.current;
     const live = () => runRef.current === run;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const runFetch: FetchLike = (input, init) => browserFetch(input, { ...init, signal: controller.signal });
     setError(null);
     setReport(null);
     setBusy(true);
@@ -152,17 +161,21 @@ export function App() {
         setError("Enter your OpenRouter key to run a live check. The sample run needs no key.");
         return;
       }
-      const provider = createOpenRouterProvider({ apiKey, model, fetchImpl: modelFetch });
+      const provider = createOpenRouterProvider({
+        apiKey,
+        model,
+        fetchImpl: withTimeout(runFetch, MODEL_TIMEOUT_MS),
+      });
       setProgress("Fetching source text.");
       const resolved = await resolveSources(current, pasted, (doi) =>
         lookupDoi(doi, {
           fullText: (d) => {
             called.add("Europe PMC (full-text lookup by DOI)");
-            return fetchFullTextByDoi(d, sourceFetch);
+            return fetchFullTextByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },
           abstract: (d) => {
             called.add("OpenAlex (abstract lookup by DOI)");
-            return fetchSourceByDoi(d, sourceFetch);
+            return fetchSourceByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },
         }),
       );
@@ -170,7 +183,7 @@ export function App() {
       setSources(resolved);
       if (Object.values(resolved).some((s) => s.status === "ok")) called.add(provider.label);
       setServices([...called]);
-      const result = await runCheck(current, resolved, provider, onProgress);
+      const result = await runCheck(current, resolved, provider, onProgress, live);
       if (!live()) return;
       setReport(result);
       setProgress("");

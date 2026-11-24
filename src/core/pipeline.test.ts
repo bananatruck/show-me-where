@@ -133,6 +133,28 @@ describe("runCheck", () => {
     expect(report.results[0]?.headline).toBe("not_every_source_backs_it");
   });
 
+  it("stops calling the model once the run is no longer current", async () => {
+    const analysis = analyzeText("A holds here [1]. B holds here [1].\nReferences\n[1] X.");
+    let current = true;
+    const calls: string[] = [];
+    const provider: ModelProvider = {
+      label: "spy",
+      async complete(request) {
+        calls.push(request.key);
+        current = false;
+        return JSON.stringify({ grade: "cannot_tell", evidence: "", reason: "r" });
+      },
+    };
+    await runCheck(
+      analysis,
+      { 1: { status: "ok", text: "Source text.", origin: "pasted" } },
+      provider,
+      undefined,
+      () => current,
+    );
+    expect(calls).toEqual(["c1:1"]);
+  });
+
   it("does not call the model for an unreachable source", async () => {
     const analysis = analyzeText("A [1].\nReferences\n[1] X.");
     const calls: string[] = [];

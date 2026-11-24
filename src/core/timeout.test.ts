@@ -24,4 +24,11 @@ describe("withTimeout", () => {
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.signal).toBeInstanceOf(AbortSignal);
   });
+
+  it("also aborts when the caller's own signal aborts", async () => {
+    const controller = new AbortController();
+    const pending = withTimeout(hangingFetch, 10_000)("https://example.org", { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toThrow();
+  });
 });

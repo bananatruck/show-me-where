@@ -247,4 +247,28 @@ describe("App", () => {
     expect(item?.getAttribute("data-grade")).toBe("not_every_source_backs_it");
     expect(item?.textContent).toContain("Also cited but not in your reference list, so not checked: [3].");
   });
+
+  it("cancels the model request in flight and makes no more after switching to the sample run", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    vi.spyOn(window, "fetch").mockImplementation((_input, init) => {
+      signals.push(init?.signal);
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      });
+    });
+    render(<App />);
+    goLive("First claim holds here [1]. Second claim holds here [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the claims hold here." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(signals[0]?.aborted).toBe(true);
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+  });
 });

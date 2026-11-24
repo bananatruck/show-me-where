@@ -86,6 +86,8 @@ export async function runCheck(
   sources: Readonly<Record<number, SourceText>>,
   provider: ModelProvider,
   onProgress?: (done: number, total: number) => void,
+  /** False once the run has been superseded; no further model call is made after that. */
+  isCurrent: () => boolean = () => true,
 ): Promise<CheckReport> {
   const total = analysis.claims.reduce((n, c) => n + c.refs.length, 0);
   let done = 0;
@@ -93,6 +95,7 @@ export async function runCheck(
   for (const claim of analysis.claims) {
     const perSource: ClaimResult["perSource"] = [];
     for (const ref of claim.refs) {
+      if (!isCurrent()) return { results, modelLabel: provider.label };
       perSource.push({ ref, judgement: await judgeOne(claim, ref, sources[ref], provider) });
       done += 1;
       onProgress?.(done, total);
