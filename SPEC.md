@@ -82,10 +82,11 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
-The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however", the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
+The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however" and then with something that can be a subject (not an "-ing" or "-ed" word, a preposition, an adverb, or "not"), the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
 Narrative citations, a single citation group, a reference cited twice, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
 The model always sees the whole sentence for context and the part it is asked to grade.
 A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
+Each source's own grade is shown beside it whenever the headline does not already say it.
 When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
 When no source backs the claim, the headline is the best evidenced of the rest.
 A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
@@ -100,6 +101,7 @@ For a reference with a DOI, the app first asks Europe PMC for an open-access cop
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
+When a check is superseded (the text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
 Each source request is abandoned after 20 seconds and each model call after 120 seconds, so a slow service turns into "not reachable" or "check failed" instead of a page that waits forever; on 2026-11-24 a Europe PMC search took 15.7 seconds from this machine.
 The app never uses a third-party CORS proxy, because a proxy would receive the user's text and key without the user knowing.
 What leaves the browser in a live run: the DOI goes to Europe PMC and, when needed, to OpenAlex; the claim and the source text go to OpenRouter under the user's own key; nothing else is sent anywhere.
