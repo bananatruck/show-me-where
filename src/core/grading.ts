@@ -132,10 +132,16 @@ export function parseModelReply(raw: string): ModelVerdict | null {
 
 const MAX_REASON = 280;
 
-/** The model's reason is shown as its own words: links removed, length capped. */
+// A link with a scheme or "www.", or a bare domain such as "evil.example/path".
+// Dotted abbreviations ("e.g.", "U.S.") and numbers ("7.1") do not match,
+// because a domain needs a final label of two or more letters.
+const LINK =
+  /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}\b(?:\/\S*)?/gi;
+
+/** Model text is shown as its own words: links removed, length capped. */
 export function sanitizeReason(reason: string): string {
   return reason
-    .replace(/\b(?:https?:\/\/|www\.)\S+/gi, "[link removed]")
+    .replace(LINK, "[link removed]")
     .slice(0, MAX_REASON)
     .trim();
 }
@@ -314,11 +320,11 @@ export function judgeReply(raw: string, source: string, claimScope: string): Jud
   if (!check.ok) {
     return overruled(CHECK_REASON[check.reason], {
       grade: verdict.grade,
-      evidence: verdict.evidence,
+      evidence: sanitizeReason(verdict.evidence),
     });
   }
   if (!sharesKeyWord(claimScope, verdict.evidence)) {
-    return overruled(REASONS.noSharedWords, { grade: verdict.grade, evidence: verdict.evidence });
+    return overruled(REASONS.noSharedWords, { grade: verdict.grade, evidence: sanitizeReason(verdict.evidence) });
   }
   const warnings =
     verdict.grade === "not_supported" ? [] : warningsFor(claimScope, verdict.evidence);

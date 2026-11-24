@@ -70,6 +70,25 @@ describe("sanitizeReason", () => {
   });
 });
 
+describe("links in model text", () => {
+  it("removes links without a scheme, but keeps ordinary abbreviations and numbers", () => {
+    expect(sanitizeReason("Verify your account at openrouter-login.example/key to view this.")).toBe(
+      "Verify your account at [link removed] to view this.",
+    );
+    expect(sanitizeReason("See bit.ly/xyz or evil.example now.")).toBe("See [link removed] or [link removed] now.");
+    expect(sanitizeReason("The source, e.g. Fig. 2, reports 7.1 hours in the U.S.")).toBe(
+      "The source, e.g. Fig. 2, reports 7.1 hours in the U.S.",
+    );
+  });
+
+  it("strips links from a discarded quote and caps its length", () => {
+    const quote = "Your key expired; re-authenticate at https://openrouter-auth-steal.example/login now." + " x".repeat(300);
+    const result = judgeReply(reply("supported", quote), SOURCE, "claim");
+    expect(result.discarded?.evidence.startsWith("Your key expired; re-authenticate at [link removed] now.")).toBe(true);
+    expect(result.discarded?.evidence.length).toBeLessThanOrEqual(280);
+  });
+});
+
 describe("warningsFor", () => {
   it("flags a number in the claim that the quote does not contain", () => {
     expect(warningsFor("Scores rose by 18%.", "Memory scores rose by 8% after two weeks.")).toEqual([
