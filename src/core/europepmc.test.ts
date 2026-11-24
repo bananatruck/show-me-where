@@ -56,6 +56,18 @@ describe("europepmc", () => {
     expect(extractJatsText(xml)).toBe("Main result. End.\n\nSecond. [2] Done.");
   });
 
+  it("extractJatsText turns a reference number glued to a full stop into a spaced marker", () => {
+    const xml =
+      '<article><body><p>Sleep latency fell by 15 minutes.<xref ref-type="bibr" rid="B1">1</xref> Total sleep time also rose.</p></body></article>';
+    expect(extractJatsText(xml)).toBe("Sleep latency fell by 15 minutes. [1] Total sleep time also rose.");
+  });
+
+  it("extractJatsText reads a paragraph nested in a list once", () => {
+    const xml =
+      "<article><body><p>Outer text.<list><list-item><p>Inner item.</p></list-item></list></p></body></article>";
+    expect(extractJatsText(xml)).toBe("Outer text. Inner item.");
+  });
+
   it("extractJatsText returns empty string for invalid XML", () => {
     expect(extractJatsText("<article><body><p>Broken</body></article>")).toBe("");
   });

@@ -29,10 +29,20 @@ export function extractJatsText(
     ...document.querySelectorAll("body p"),
   ]
     .filter((paragraph) => paragraph.closest(EXCLUDED) === null)
+    // A paragraph inside another (in a list, say) is read as part of the outer one.
+    .filter((paragraph) => paragraph.parentElement?.closest("p") == null)
     .map((paragraph) => {
       // A figure or table can sit inside a paragraph; drop it before reading the text.
       const copy = paragraph.cloneNode(true) as Element;
       copy.querySelectorAll(EXCLUDED).forEach((node) => node.remove());
+      // A reference number glued to a full stop ("minutes.1") would hide the
+      // sentence boundary; write it as a spaced marker ("minutes. [1]").
+      copy.querySelectorAll('xref[ref-type="bibr"]').forEach((xref) => {
+        const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
+        if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
+      });
+      // Nested blocks start a new sentence, so keep a space before each.
+      copy.querySelectorAll("p, list-item").forEach((block) => block.prepend(" "));
       return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
     })
     .filter((text) => text !== "")
