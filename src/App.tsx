@@ -346,6 +346,9 @@ export function App() {
           </section>
         )}
       </main>
+      <footer className="site-footer quiet">
+        <a href={`${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.txt`}>Licences and third-party notices</a>
+      </footer>
     </div>
   );
 }

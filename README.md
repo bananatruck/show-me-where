@@ -13,7 +13,7 @@ The full design is in [SPEC.md](SPEC.md), and the submission text is in [submiss
 - The sample run works end to end with no key, and is labelled on screen as a synthetic, hand-written example.
 - Live mode is built: citation parsing, source fetching from Europe PMC and OpenAlex, the OpenRouter call, and every check.
 - The live model call has been tested only against a recorded HTTP 401 reply and a hand-written reply in the documented response shape. It has not yet run with a real key. Until it has, nothing in this repository claims a real model result.
-- Not yet deployed. It is a static site, so it can be deployed to GitHub Pages as it is.
+- Not yet deployed. `.github/workflows/pages.yml` deploys the static build to GitHub Pages under `/show-me-where/` on every push to `main`, after lint, type-check, tests and build pass.
 
 ## Run it
 
@@ -76,6 +76,9 @@ Fonts are bundled with the app, so no font service is called.
 | Source Serif 4 | `@fontsource/source-serif-4` | SIL OFL 1.1 | Typeface for student text and source passages, bundled |
 | React, Vite, Vitest, ESLint, TypeScript | npm | MIT or Apache-2.0 | Framework and tooling |
 
+The full licence texts for these, including the SIL Open Font License for the bundled fonts, are in [public/THIRD_PARTY_NOTICES.txt](public/THIRD_PARTY_NOTICES.txt), which ships with the site and is linked from its footer.
+Show Me Where itself is released under the [MIT License](LICENSE).
+
 Considered and not used:
 
 - React Bits: its licence is "MIT + Commons Clause" and forbids redistributing the components themselves, and this repository is public.
@@ -87,7 +90,6 @@ Considered and not used:
 All screenshots are from a local build in Chrome, at 1440 or 390 CSS pixels wide, and are in [docs/screenshots](docs/screenshots).
 The sample screens show the synthetic example.
 The live-mode error screens used a placeholder key that is not a real key.
-The mock-ups the design started from are in [design/mockups](design/mockups).
 
 ## How it was built
 

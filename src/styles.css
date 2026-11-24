@@ -489,6 +489,14 @@ h3 {
   }
 }
 
+.site-footer {
+  margin-top: 2rem;
+}
+
+.site-footer a {
+  color: var(--ink-soft);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
