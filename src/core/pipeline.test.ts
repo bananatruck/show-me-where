@@ -6,7 +6,9 @@ import { ProviderError, createReplayProvider, type ModelProvider } from "./provi
 import type { SourceText } from "./types";
 
 function sampleSources(): Record<number, SourceText> {
-  const out: Record<number, SourceText> = {};
+  const out: Record<number, SourceText> = {
+    5: { status: "unreachable", reason: "No source text in the sample." },
+  };
   for (const [n, text] of Object.entries(SAMPLE_RUN.sources)) {
     out[Number(n)] = { status: "ok", text, origin: "fixture" };
   }
@@ -87,12 +89,17 @@ describe("runCheck", () => {
     const report = await runCheck(analysis, sampleSources(), createReplayProvider(SAMPLE_RUN.replies));
 
     expect(analysis.uncited).toEqual(["Many students say they sleep less during exam weeks."]);
-    expect(report.results.map((r) => [r.claim.id, r.headline])).toEqual([
-      ["c1", "supported"],
-      ["c2", "partly_supported"],
-      ["c3", "cannot_tell"],
-      ["c4", "supported"],
-      ["c5", "cannot_tell"],
+    expect(analysis.style).toBe("author_year");
+    expect(report.results.map((r) => [r.claim.id, r.claim.refs, r.headline])).toEqual([
+      ["c1", [1], "supported"],
+      ["c2", [1], "partly_supported"],
+      ["c3", [2], "cannot_tell"],
+      ["c4", [3, 4], "sources_disagree"],
+      ["c5", [3], "cannot_tell"],
+      ["c6", [5], "source_not_reachable"],
+    ]);
+    expect(report.results[1]?.perSource[0]?.judgement.warnings).toEqual([
+      "The claim says 18%, which is not in the quoted sentence.",
     ]);
     const discarded = report.results[2]?.perSource[0]?.judgement;
     expect(discarded?.reason).toBe(REASONS.quoteNotFound);
