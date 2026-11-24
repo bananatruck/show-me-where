@@ -181,30 +181,36 @@ function removeSpans(sentence: string, spans: readonly Citation[]): string {
 const MIN_SCOPE_WORDS = 3;
 
 /**
- * The part of the sentence each citation is attached to: the text between the
- * previous parenthetical citation and this one. Narrative citations, repeated
- * references, a single citation group, and scopes under three words all fall
- * back to the whole sentence.
+ * The part of the sentence each citation is attached to. A sentence is split
+ * only when it is safe: every citation is parenthetical, there are at least
+ * two, nothing but punctuation follows the last one (so no shared predicate
+ * is cut off, as in "Studies [1] and trials [2] proved X"), and every part has
+ * at least three words. Otherwise every source is checked against the whole
+ * sentence. A reference cited twice is always checked against the whole.
  */
 function scopesFor(sentence: string, citations: readonly Citation[], text: string): Record<number, string> {
-  const scopes: Record<number, string> = {};
-  const removable = citations.filter((c) => !c.narrative);
+  const whole: Record<number, string> = {};
+  for (const c of citations) for (const r of c.refs) whole[r] = text;
+
+  const last = citations.at(-1);
+  if (
+    citations.length < 2 ||
+    citations.some((c) => c.narrative) ||
+    !last ||
+    !/^[\s.!?;:,"')\]\u201D\u2019]*$/.test(sentence.slice(last.end))
+  ) {
+    return whole;
+  }
+
   const seen = new Map<number, number>();
   for (const c of citations) for (const r of c.refs) seen.set(r, (seen.get(r) ?? 0) + 1);
-
+  const scopes: Record<number, string> = {};
   let previousEnd = 0;
   for (const c of citations) {
-    let scope = text;
-    if (!c.narrative && removable.length > 1) {
-      const inner = removable.filter((o) => o.start >= previousEnd && o.end <= c.start);
-      const segment = tidy(removeSpans(sentence.slice(0, c.start), inner).slice(previousEnd)).replace(
-        /^[,;:]\s*/,
-        "",
-      );
-      if (segment.split(/\s+/).filter(Boolean).length >= MIN_SCOPE_WORDS) scope = segment;
-    }
-    if (!c.narrative) previousEnd = c.end;
-    for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : scope;
+    const segment = tidy(sentence.slice(previousEnd, c.start)).replace(/^[,;:]\s*/, "");
+    if (segment.split(/\s+/).filter(Boolean).length < MIN_SCOPE_WORDS) return whole;
+    for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : segment;
+    previousEnd = c.end;
   }
   return scopes;
 }

@@ -135,6 +135,31 @@ describe("extractClaims", () => {
     });
   });
 
+  it("uses the whole sentence when words follow the last citation", () => {
+    const sentence =
+      "Earlier clinical studies [1] and recent patient trials [2] proved that bleach cures COVID-19 in humans.";
+    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
+    const whole = "Earlier clinical studies and recent patient trials proved that bleach cures COVID-19 in humans.";
+    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
+  });
+
+  it("uses the whole sentence when a narrative citation is mixed with parenthetical ones", () => {
+    const references = parseAuthorYearReferences(
+      [
+        "Smith, A. (2020). One.",
+        "Jones, B. (2021). Two.",
+        "Lee, C. (2022). Three.",
+      ].join("\n"),
+    );
+    const { claims } = extractClaims(
+      "Smith (2020) showed that exercise improves mood (Jones, 2021), while bleach cures COVID-19 (Lee, 2022).",
+      "author_year",
+      references,
+    );
+    const whole = "Smith (2020) showed that exercise improves mood, while bleach cures COVID-19.";
+    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole, 3: whole });
+  });
+
   it("falls back to the whole sentence when a scope would be too short", () => {
     const { claims } = extractClaims("Naps [1] help recall [2].", "numeric", numericRefs([1, 2]));
     expect(claims[0]?.scopes).toEqual({ 1: "Naps help recall.", 2: "Naps help recall." });
