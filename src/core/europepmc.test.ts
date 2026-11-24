@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
+import { checkEvidence } from "./evidence";
 import type { FetchLike } from "./types";
 import {
   europePmcSearchUrl,
@@ -65,13 +66,20 @@ describe("europepmc", () => {
   it("extractJatsText reads a paragraph nested in a list once", () => {
     const xml =
       "<article><body><p>Outer text.<list><list-item><p>Inner item.</p></list-item></list></p></body></article>";
-    expect(extractJatsText(xml)).toBe("Outer text. Inner item.");
+    expect(extractJatsText(xml)).toBe("Outer text.\n\nInner item.");
   });
 
   it("extractJatsText keeps a space after a nested list before the parent text goes on", () => {
     const xml =
       "<article><body><p>Outer.<list><list-item><p>Inner treatment improved survival.</p></list-item></list>Following sentence.</p></body></article>";
-    expect(extractJatsText(xml)).toBe("Outer. Inner treatment improved survival. Following sentence.");
+    expect(extractJatsText(xml)).toBe("Outer.\n\nInner treatment improved survival.\n\nFollowing sentence.");
+  });
+
+  it("extractJatsText keeps a nested paragraph as its own paragraph, so a quote of it is a whole sentence", () => {
+    const xml = "<article><body><p>Results:<p>Treatment improved survival in adults.</p></p></body></article>";
+    const text = extractJatsText(xml);
+    expect(text).toBe("Results:\n\nTreatment improved survival in adults.");
+    expect(checkEvidence("Treatment improved survival in adults.", text)).toMatchObject({ ok: true, before: "Results:" });
   });
 
   it("extractJatsText returns empty string for invalid XML", () => {

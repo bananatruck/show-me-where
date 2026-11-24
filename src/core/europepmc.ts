@@ -13,6 +13,9 @@ export function europePmcFullTextUrl(pmcid: string): string {
 /** Maximum number of characters retained from full text. */
 export const MAX_FULL_TEXT_CHARS = 120000;
 
+/** Unicode paragraph separator, used only to mark block edges while reading. */
+const BLOCK_BREAK = "\u2029";
+
 const EXCLUDED = "ref-list, table-wrap, fig, supplementary-material, back";
 
 /** Read abstract and body paragraphs from JATS, excluding ancillary matter. */
@@ -41,12 +44,18 @@ export function extractJatsText(
         const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
         if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
       });
-      // Nested blocks start and end sentences, so keep a space on both sides.
+      // A nested block (a list, a paragraph in a paragraph) is a paragraph of
+      // its own: mark both sides, then split there, so the boundary survives
+      // the whitespace clean-up below.
       copy.querySelectorAll("p, list-item, list").forEach((block) => {
-        block.prepend(" ");
-        block.append(" ");
+        block.prepend(BLOCK_BREAK);
+        block.append(BLOCK_BREAK);
       });
-      return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+      return (copy.textContent ?? "")
+        .split(BLOCK_BREAK)
+        .map((part) => part.replace(/\s+/g, " ").trim())
+        .filter((part) => part !== "")
+        .join("\n\n");
     })
     .filter((text) => text !== "")
     .join("\n\n");
