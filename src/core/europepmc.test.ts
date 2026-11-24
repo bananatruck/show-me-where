@@ -49,6 +49,13 @@ describe("europepmc", () => {
     expect(extractJatsText(xml)).toBe("Abstract.\n\nBody.\n\nEnd.");
   });
 
+  it("extractJatsText drops a figure, table or reference nested inside a paragraph", () => {
+    const xml =
+      "<article><body><p>Main result. <fig><caption><p>Caption-only claim.</p></caption></fig> End.</p>" +
+      "<p>Second. <table-wrap><p>Cell text.</p></table-wrap><xref>[2]</xref> Done.</p></body></article>";
+    expect(extractJatsText(xml)).toBe("Main result. End.\n\nSecond. [2] Done.");
+  });
+
   it("extractJatsText returns empty string for invalid XML", () => {
     expect(extractJatsText("<article><body><p>Broken</body></article>")).toBe("");
   });

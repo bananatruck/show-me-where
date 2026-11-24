@@ -13,6 +13,8 @@ export function europePmcFullTextUrl(pmcid: string): string {
 /** Maximum number of characters retained from full text. */
 export const MAX_FULL_TEXT_CHARS = 120000;
 
+const EXCLUDED = "ref-list, table-wrap, fig, supplementary-material, back";
+
 /** Read abstract and body paragraphs from JATS, excluding ancillary matter. */
 export function extractJatsText(
   xml: string,
@@ -26,10 +28,13 @@ export function extractJatsText(
     ...document.querySelectorAll("front abstract p"),
     ...document.querySelectorAll("body p"),
   ]
-    .filter((paragraph) => paragraph.closest(
-      "ref-list, table-wrap, fig, supplementary-material, back",
-    ) === null)
-    .map((paragraph) => (paragraph.textContent ?? "").replace(/\s+/g, " ").trim())
+    .filter((paragraph) => paragraph.closest(EXCLUDED) === null)
+    .map((paragraph) => {
+      // A figure or table can sit inside a paragraph; drop it before reading the text.
+      const copy = paragraph.cloneNode(true) as Element;
+      copy.querySelectorAll(EXCLUDED).forEach((node) => node.remove());
+      return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+    })
     .filter((text) => text !== "")
     .join("\n\n");
 }
