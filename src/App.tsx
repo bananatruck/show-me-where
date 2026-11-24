@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchFullTextByDoi } from "./core/europepmc";
 import { analyzeText, resolveSources, runCheck, type Analysis, type CheckReport } from "./core/pipeline";
 import { ProviderError, createOpenRouterProvider, createReplayProvider } from "./core/provider";
@@ -65,6 +65,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  /** Identifies the newest check; a check that is no longer newest must not write state. */
+  const runRef = useRef(0);
 
   useEffect(() => {
     applyTheme(theme, false);
@@ -73,6 +75,9 @@ export function App() {
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
   function reset() {
+    // Any check still running belongs to the text being replaced; disown it.
+    runRef.current += 1;
+    setBusy(false);
     setAnalysis(null);
     setProblem(null);
     setReport(null);
@@ -107,11 +112,15 @@ export function App() {
   }
 
   async function check(current: Analysis) {
+    runRef.current += 1;
+    const run = runRef.current;
+    const live = () => runRef.current === run;
     setError(null);
     setReport(null);
     setBusy(true);
-    const onProgress = (done: number, total: number) =>
-      setProgress(`Checked ${done} of ${total} claim and source pairs.`);
+    const onProgress = (done: number, total: number) => {
+      if (live()) setProgress(`Checked ${done} of ${total} claim and source pairs.`);
+    };
     try {
       if (mode === "sample") {
         const sampleText = sampleSources();
@@ -120,9 +129,11 @@ export function App() {
           resolved[n] = sampleText[n] ?? { status: "unreachable", reason: SAMPLE_MISSING };
         }
         const provider = createReplayProvider(SAMPLE_RUN.replies, "Hand-written replies (synthetic sample)");
+        const result = await runCheck(current, resolved, provider, onProgress);
+        if (!live()) return;
         setSources(resolved);
-        setReport(await runCheck(current, resolved, provider, onProgress));
         setServices([]);
+        setReport(result);
         return;
       }
       if (apiKey.trim() === "") {
@@ -144,11 +155,15 @@ export function App() {
           },
         }),
       );
+      if (!live()) return;
       setSources(resolved);
       if (Object.values(resolved).some((s) => s.status === "ok")) called.add(provider.label);
       setServices([...called]);
-      setReport(await runCheck(current, resolved, provider, onProgress));
+      const result = await runCheck(current, resolved, provider, onProgress);
+      if (!live()) return;
+      setReport(result);
     } catch (e) {
+      if (!live()) return;
       setProgress("");
       const message = e instanceof Error ? e.message : String(e);
       setError(
@@ -157,7 +172,7 @@ export function App() {
           : message,
       );
     } finally {
-      setBusy(false);
+      if (live()) setBusy(false);
     }
   }
 
@@ -232,6 +247,8 @@ export function App() {
               aria-describedby="text-help"
               onChange={(e) => {
                 setLiveText(e.target.value);
+                // Pasted source text belongs to the old document's reference numbers.
+                setPasted({});
                 reset();
               }}
             />

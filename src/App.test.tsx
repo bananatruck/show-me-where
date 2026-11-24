@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { REASONS } from "./core/grading";
 import { SAMPLE_RUN } from "./fixtures/sample";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   window.sessionStorage.clear();
   window.localStorage.clear();
   delete document.documentElement.dataset.theme;
@@ -116,5 +117,52 @@ describe("App", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
     expect(window.localStorage.getItem("show-me-where.theme")).toBe("dark");
+  });
+
+  it("ignores a check that finishes after the text was replaced", async () => {
+    let answer: (response: Response) => void = () => {};
+    vi.spyOn(window, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => (answer = resolve)),
+    );
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the first claim holds." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Text to check"), {
+      target: { value: "Second claim holds [1].\nReferences\n[1] Second source." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    answer(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: JSON.stringify({ grade: "cannot_tell", evidence: "", reason: "r" }) } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("list", { name: "Results" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Check claims" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("clears pasted source text when the document changes", () => {
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), { target: { value: "old text" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect((screen.getByLabelText("Source text for [1]") as HTMLTextAreaElement).value).toBe("old text");
+
+    fireEvent.change(screen.getByLabelText("Text to check"), {
+      target: { value: "Second claim holds [1].\nReferences\n[1] Second source." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect((screen.getByLabelText("Source text for [1]") as HTMLTextAreaElement).value).toBe("");
   });
 });
