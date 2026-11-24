@@ -27,12 +27,15 @@ export interface Claim {
   refs: number[];
 }
 
-/** Where a source's text came from. */
-export type SourceOrigin = "openalex" | "pasted" | "fixture";
+/**
+ * Where a source's text came from: "openalex" is an abstract only,
+ * "europepmc" is open-access full text, "pasted" is whatever the user pasted.
+ */
+export type SourceOrigin = "openalex" | "europepmc" | "pasted" | "fixture";
 
 /** The text of one cited source, or why it could not be obtained. */
 export type SourceText =
-  | { status: "ok"; text: string; origin: SourceOrigin }
+  | { status: "ok"; text: string; origin: SourceOrigin; truncated?: boolean }
   | { status: "unreachable"; reason: string };
 
 /** Minimal fetch signature so tests can pass a fake. */
