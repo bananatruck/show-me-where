@@ -36,10 +36,9 @@ Only free models, whose ids end in `:free`, are accepted.
 1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
 2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
-4. When a sentence joins independent clauses with a semicolon and each later clause starts with "the", "a", "an", "this", "these", "those", "its", "their", "it", "they", "we", "he" or "she" ("A rose [1]; the B fell [2]"), each source is checked against its own clause.
-   Every other sentence is checked whole by every source, including "A rose [1], while B fell [2]", a shared opening such as "No evidence shows that" or "In adults,", a clause with a left-out verb phrase ("; the placebo did not"), narrative citations, one citation group, parts under three words, or words after the final citation.
-   This gives up precision on purpose: a word-level rule cannot tell "but often has" or "but most notably reduces" from a clause with its own subject, and a clause graded without its shared subject could show a wrong grade as supported.
-   A source cited more than once uses the whole sentence; other sources can keep their scopes.
+4. Every cited source is checked against the whole sentence, even in "A rose [1], while B fell [2]".
+   The app does not cut a sentence into parts for each source, because a part can lean on the rest of the sentence ("; the placebo, only in younger adults", "but often has adverse effects"), and a part graded without that could show a wrong grade as supported.
+   The cost: a source cited for half a sentence usually reads "partly supported", and the sentence reads "Not every cited source backs it".
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
    Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.
    Full text is limited to 120,000 characters at a paragraph boundary, or a complete sentence boundary if the first paragraph is too long.
@@ -47,8 +46,8 @@ Only free models, whose ids end in `:free`, are accepted.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
 7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim when the claim has extractable key words. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
-9. A claim shows a backing grade only if every cited source backs it. If one source backs a cited scope and another contradicts that same scope, it reads "Sources disagree".
-   Opposing grades on different scopes, or a source that could not be read or checked, give "Not every cited source backs it".
+9. A claim shows a backing grade only if every cited source backs it. If one source backs the whole sentence and another contradicts it, it reads "Sources disagree".
+   A source that backs only part of it next to one that contradicts it, or a source that could not be read or checked, gives "Not every cited source backs it".
 
 ## What it does not do
 

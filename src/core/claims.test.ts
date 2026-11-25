@@ -108,7 +108,6 @@ describe("extractClaims", () => {
           text: "Sleep improves memory.",
           sentence: "Sleep improves memory [1].",
           refs: [1],
-          scopes: { 1: "Sleep improves memory." },
           unresolved: [],
         },
         {
@@ -116,24 +115,11 @@ describe("extractClaims", () => {
           text: "Naps help too.",
           sentence: "Naps help too [2, 3].",
           refs: [2, 3],
-          scopes: { 2: "Naps help too.", 3: "Naps help too." },
           unresolved: [],
         },
       ],
       uncited: ["This matters for students."],
       unresolved: [],
-    });
-  });
-
-  it("scopes each citation to the part of the sentence it follows", () => {
-    const { claims } = extractClaims(
-      "Memory scores rose sharply [1]; the reaction times did not change at all [2].",
-      "numeric",
-      numericRefs([1, 2]),
-    );
-    expect(claims[0]?.scopes).toEqual({
-      1: "Memory scores rose sharply",
-      2: "the reaction times did not change at all",
     });
   });
 
@@ -146,134 +132,6 @@ describe("extractClaims", () => {
     expect(claims.map((c) => [c.text, c.refs])).toEqual([["Mortality fell by 50%.", [1]]]);
     expect(uncited).toEqual(["Naps improve recall [4].", "In [2019] it rose."]);
     expect(unresolved).toEqual(["[3]", "[4]"]);
-  });
-
-  it.each([
-    "No evidence shows that Drug X improves survival [1] or reduces mortality [2].",
-    "Drug X improves survival in older adults [1] and reduces mortality in younger ones [2].",
-    "It is unlikely that coffee improves memory [1], while tea improves sleep quality [2].",
-    "Drug X improves survival [1], while reducing mortality in adults [2].",
-    "Drug X improves survival in adults [1], but not in older patients overall [2].",
-    "Drug X improves survival in adults [1], while also lowering mortality rates [2].",
-  ])("uses the whole sentence when the parts share a frame or subject: %j", (sentence) => {
-    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
-    const text = claims[0]?.text ?? "";
-    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
-  });
-
-  // The splitting rule: a later part is split off only when it opens with a
-  // semicolon (optionally "however,") and then an article, demonstrative,
-  // possessive determiner or subject pronoun, and does not end in a left-out
-  // verb phrase. Everything else keeps the whole sentence for every source,
-  // including many clauses a reader would split. null means the whole sentence.
-  it.each([
-    ["; the placebo group did not improve", "the placebo group did not improve"],
-    ["; it did not reduce mortality in adults", "it did not reduce mortality in adults"],
-    ["; however, the effect on mortality was small", "however, the effect on mortality was small"],
-    ["; these effects were small in adults", "these effects were small in adults"],
-    ["; their mortality rate fell by half", "their mortality rate fell by half"],
-    ["; the reaction times did not change at all", "the reaction times did not change at all"],
-    // A conjunction is not enough, even before an explicit subject.
-    [", while reaction times did not change at all", null],
-    [", while the placebo group did not improve", null],
-    [", but it did not reduce mortality in adults", null],
-    [", whereas 30% of patients relapsed within a year", null],
-    [", while family history was associated with mortality", null],
-    [", while family history predicts mortality", null],
-    // Subjectless continuations, including the reported adverb and quantifier cases.
-    [", but reduces mortality in older adults", null],
-    [", but fails to reduce mortality in adults", null],
-    [", but fell short in older adults", null],
-    [", but often fails in older adults", null],
-    [", but most notably reduces mortality in adults", null],
-    [", but often has adverse effects in adults", null],
-    [", but never reduces mortality in adults", null],
-    [", but reduces costs patients had", null],
-    [", while significantly reducing mortality in adults", null],
-    [", while also lowering mortality rates", null],
-    [", but not in older patients overall", null],
-    // After a semicolon: quantifiers used as adverbs, adverbs, elided subjects,
-    // open-class first words, fronted phrases and left-out verb phrases.
-    ["; most patients did not improve at all", null],
-    ["; most notably reduces mortality in adults", null],
-    ["; often has adverse effects in adults", null],
-    ["; reduces mortality in older adults", null],
-    ["; family history predicts mortality", null],
-    ["; however, mortality did not change in adults", null],
-    ["; in older adults the effect was small", null],
-    ["; that is, it reduces mortality", null],
-    ["; the placebo group did not", null],
-    ["; the placebo group did as well", null],
-    ["; they did too", null],
-  ] as const)("splits a later clause only on the stated signals: %j", (continuation, scope) => {
-    const sentence = `Drug X improves survival in adults [1]${continuation} [2].`;
-    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
-    const text = claims[0]?.text ?? "";
-    expect(claims[0]?.scopes).toEqual(
-      scope === null ? { 1: text, 2: text } : { 1: "Drug X improves survival in adults", 2: scope },
-    );
-  });
-
-  it.each([
-    "In adults, Drug X improves survival [1]; the placebo group did not improve [2].",
-    "Drug X did not improve survival [1]; the placebo group improved it [2].",
-  ])("keeps the whole sentence when the first part has a frame or fronted phrase: %j", (sentence) => {
-    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
-    const text = claims[0]?.text ?? "";
-    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
-  });
-
-  it("keeps the whole sentence for a verb-led continuation after a plural subject", () => {
-    const { claims } = extractClaims(
-      "Statins lower cholesterol in adults [1] but increase diabetes risk overall [2].",
-      "numeric",
-      numericRefs([1, 2]),
-    );
-    const text = claims[0]?.text ?? "";
-    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
-  });
-
-  it("uses the whole sentence when words follow the last citation", () => {
-    const sentence =
-      "Earlier clinical studies [1] and recent patient trials [2] proved that bleach cures COVID-19 in humans.";
-    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
-    const whole = "Earlier clinical studies and recent patient trials proved that bleach cures COVID-19 in humans.";
-    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
-  });
-
-  it("keeps the shared subject for adverb-led participial continuations", () => {
-    for (const continuation of [
-      "while significantly reducing mortality in adults",
-      "while substantially improving outcomes in adults",
-      "but rapidly reducing mortality in adults",
-      "while very significantly reducing mortality in adults",
-    ]) {
-      const { claims } = extractClaims(`Drug X improves survival [1], ${continuation} [2].`, "numeric", numericRefs([1, 2]));
-      const whole = `Drug X improves survival, ${continuation}.`;
-      expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
-    }
-  });
-
-  it("uses the whole sentence when a narrative citation is mixed with parenthetical ones", () => {
-    const references = parseAuthorYearReferences(
-      [
-        "Smith, A. (2020). One.",
-        "Jones, B. (2021). Two.",
-        "Lee, C. (2022). Three.",
-      ].join("\n"),
-    );
-    const { claims } = extractClaims(
-      "Smith (2020) showed that exercise improves mood (Jones, 2021), while bleach cures COVID-19 (Lee, 2022).",
-      "author_year",
-      references,
-    );
-    const whole = "Smith (2020) showed that exercise improves mood, while bleach cures COVID-19.";
-    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole, 3: whole });
-  });
-
-  it("falls back to the whole sentence when a scope would be too short", () => {
-    const { claims } = extractClaims("Naps [1] help recall [2].", "numeric", numericRefs([1, 2]));
-    expect(claims[0]?.scopes).toEqual({ 1: "Naps help recall.", 2: "Naps help recall." });
   });
 
   it("reads author-year citations, keeps narrative ones in the text, and reports unresolved ones", () => {
@@ -295,7 +153,6 @@ describe("extractClaims", () => {
           text: "Smith and Jones (2020) found that sleep improves memory.",
           sentence: "Smith and Jones (2020) found that sleep improves memory.",
           refs: [1],
-          scopes: { 1: "Smith and Jones (2020) found that sleep improves memory." },
           unresolved: [],
         },
         {
@@ -303,7 +160,6 @@ describe("extractClaims", () => {
           text: "Naps also help recall.",
           sentence: "Naps also help recall (Lee et al., 2019, p. 4; Smith & Jones, 2020).",
           refs: [1, 2],
-          scopes: { 1: "Naps also help recall.", 2: "Naps also help recall." },
           unresolved: [],
         },
       ],

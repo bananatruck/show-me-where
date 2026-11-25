@@ -235,95 +235,6 @@ function removeSpans(sentence: string, spans: readonly Citation[]): string {
   return out + sentence.slice(at);
 }
 
-const MIN_SCOPE_WORDS = 3;
-
-/** Words that make the start of a sentence a frame over everything after it. */
-const SHARED_FRAME =
-  /\b(?:no|not|never|none|neither|nor|without|cannot|unlikely|unclear|whether|if|that|may|might|could)\b|n't\b/i;
-
-/**
- * Words that can only open a clause's own subject: articles, demonstratives,
- * possessive determiners and subject pronouns. Quantifiers ("most", "all")
- * are left out because they also work as adverbs ("most notably").
- */
-const SUBJECT_START = new Set("the a an this these those its their it they we he she".split(" "));
-
-/** Words that end a clause whose verb phrase is left out ("the placebo did not"). */
-const ELLIPSIS_END = new Set(
-  "is are was were be been being has have had do does did can could will would shall should must may might not too so either neither also likewise".split(" "),
-);
-
-/** A later part must open with a semicolon, optionally followed by "however". */
-const CLAUSE_OPENER = /^\s*;\s*(?:however\b\s*,?\s*)?/i;
-
-/**
- * Whether a later part stands as a clause with its own subject. Only signals
- * a word-level rule cannot misread count: an explicit semicolon, then one of
- * the SUBJECT_START words first. "while", "but" and the like are not enough,
- * because what follows them may lean on the first part's subject ("but often
- * has adverse effects", "but most notably reduces mortality"), and an open
- * class word such as "reduces" or "family" cannot be told from a noun or an
- * adverb. A part whose verb phrase is left out ("; the placebo did not") does
- * not stand alone either.
- */
-function opensOwnClause(part: string): boolean {
-  if (!CLAUSE_OPENER.test(part)) return false;
-  const words = (part.replace(CLAUSE_OPENER, "").match(/[\p{L}\p{N}%]+/gu) ?? []).map((w) => w.toLowerCase());
-  const first = words[0];
-  const last = words.at(-1);
-  if (first === undefined || last === undefined) return false;
-  return SUBJECT_START.has(first) && !ELLIPSIS_END.has(last) && !/\bas well\s*$/i.test(part.trim());
-}
-
-/**
- * The part of the sentence each citation is attached to. The rule: split only
- * when every part is shown to be a clause of its own, otherwise every source
- * gets the whole sentence. Checking a source against more text can only lower
- * its grade, while a part that lost its subject or frame could raise it. The
- * cost is that many sentences a reader would split, such as "A rose [1], while
- * B fell [2]", are graded whole. A sentence is split only when all of these hold:
- * - there are at least two citations, all parenthetical;
- * - nothing but punctuation follows the last one (so no shared predicate is
- *   cut off, as in "Studies [1] and trials [2] proved X");
- * - the first part has no frame word ("No evidence shows that", "unlikely")
- *   and no comma, since a fronted phrase ("In 2020, ...") may cover every part;
- * - every later part opens with ";" and its own subject (see opensOwnClause);
- * - every part has at least three words.
- * A reference cited twice is always checked against the whole sentence.
- */
-function scopesFor(sentence: string, citations: readonly Citation[], text: string): Record<number, string> {
-  const whole: Record<number, string> = {};
-  for (const c of citations) for (const r of c.refs) whole[r] = text;
-
-  const last = citations.at(-1);
-  if (
-    citations.length < 2 ||
-    citations.some((c) => c.narrative) ||
-    !last ||
-    !/^[\s.!?;:,"')\]\u201D\u2019]*$/.test(sentence.slice(last.end))
-  ) {
-    return whole;
-  }
-
-  const seen = new Map<number, number>();
-  for (const c of citations) for (const r of c.refs) seen.set(r, (seen.get(r) ?? 0) + 1);
-  const scopes: Record<number, string> = {};
-  let previousEnd = 0;
-  for (const [k, c] of citations.entries()) {
-    const raw = sentence.slice(previousEnd, c.start);
-    // A frame ("No evidence shows that", "It is unlikely that") or a fronted
-    // phrase ("In adults, ...") at the start may govern every part.
-    if (k === 0 && (SHARED_FRAME.test(raw) || raw.includes(","))) return whole;
-    // A later part must open a clause of its own ("; the placebo group ...").
-    if (k > 0 && !opensOwnClause(raw)) return whole;
-    const segment = tidy(raw).replace(/^[,;:]\s*/, "");
-    if (segment.split(/\s+/).filter(Boolean).length < MIN_SCOPE_WORDS) return whole;
-    for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : segment;
-    previousEnd = c.end;
-  }
-  return scopes;
-}
-
 /** Numeric citations removed from a sentence, kept for the marker grammar tests. */
 export function parseMarkers(
   sentence: string,
@@ -363,7 +274,6 @@ export function extractClaims(
       text,
       sentence,
       refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
-      scopes: scopesFor(sentence, citations, text),
       unresolved: [...new Set(found.unresolved)],
     });
   }

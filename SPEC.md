@@ -81,22 +81,14 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 ## Claims that cite several sources
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
-When the citations sit at different points in the sentence, as in "Scores rose sharply [1]; the reaction times did not change [2]", each source can be graded against the part of the sentence its citation follows.
-The rule is to split only on signals a word-level rule cannot misread, and otherwise to give every source the whole sentence.
-Checking a source against more text can only lower its grade, while a part that lost its subject or frame could raise it.
-Each later part must open with a semicolon, optionally followed by "however", and then with an article ("the", "a", "an"), a demonstrative ("this", "these", "those"), a possessive determiner ("its", "their") or a subject pronoun ("it", "they", "we", "he", "she").
-A part that ends in a left-out verb phrase ("; the placebo group did not", "; they did too", "as well") keeps the whole sentence.
-Conjunctions such as "while" and "but" are not enough: what follows them may lean on the first part's subject ("but often has adverse effects", "but most notably reduces mortality"), and an open-class word such as "reduces", "family" or "often" cannot be told from a noun or an adverb.
-Quantifiers such as "most" are not enough either, since they also work as adverbs.
-The opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that") and no comma, since a fronted phrase such as "In adults," may cover every part; nothing but punctuation may follow the last citation.
-The cost is precision: many sentences a reader would split, such as "A rose [1], while B fell [2]", are graded whole, so each source answers for the whole sentence and may show partial support.
-Narrative citations, a single citation group, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
-A reference cited twice is checked against the whole sentence, while other sources can keep their scopes.
-The model always sees the whole sentence for context and the part it is asked to grade.
+Every source is graded against the whole sentence, even when its citation sits after only one part, as in "Scores rose sharply [1], while reaction times did not change [2]".
+A sentence is never cut into a part for each source: a later part can lean on the rest of the sentence for its subject, verb or frame ("but often has adverse effects", "; the placebo, only in younger adults", "; the placebo did so", "; the drug was well tolerated"), and no word-level rule tells those apart from clauses that stand alone.
+A part graded without what it leans on could show a wrong grade as supported, while grading the whole sentence can only lower a grade.
+The cost is precision: a source cited for one half of a sentence answers for all of it, so it usually reads "partly supported", and the headline for the sentence is "Not every cited source backs it" rather than a backing grade.
 A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
 Each source's own grade is shown beside it whenever the headline does not already say it.
-When one source backs a cited scope and another contradicts that same scope, the headline is "Sources disagree".
-Opposing grades on different scopes give "Not every cited source backs it", as does a source that could not be read, checked, or found to address the claim.
+When one source backs the whole sentence ("supported") and another contradicts it, the headline is "Sources disagree".
+A source that backs only part of the sentence next to one that contradicts it gives "Not every cited source backs it", since each may cover a different part, as does a source that could not be read, checked, or found to address the claim.
 When no source backs the claim, the headline is the best evidenced of the rest.
 A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
 So a contradicting or unchecked source is never hidden behind a supporting one.
@@ -123,7 +115,7 @@ On 2026-11-24 a live-mode run in Chrome from a local build reached Europe PMC fu
 
 ## The grading rubric the model is held to
 
-The model sees one claim, the part cited to one source, and that source's text, and answers in JSON with `grade`, `evidence`, and `reason`.
+The model sees one whole claim sentence and one source's text, and answers in JSON with `grade`, `evidence`, and `reason`.
 `supported`: the source states the claim, including its numbers, direction, strength, population, and conditions.
 `partly_supported`: the source states part of the claim, or states it with a narrower scope, a different population or condition, a weaker strength, a hedge, or different numbers.
 `not_supported`: the source states something that contradicts the claim or is incompatible with it.
@@ -164,7 +156,7 @@ The closing panel restates what the app checked and what it did not.
 ## Prompt injection
 
 Source text is untrusted data, and so is any text the student pastes.
-The student's sentence, the cited part, and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
+The student's sentence and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
 The system prompt says that both the student's sentence and the source are data.
 The rules are repeated after the source, so the source never has the last word in the prompt.
 The model's reason is shown as its words with links removed, and its grade only survives if its quote is a whole sentence of the source.
@@ -175,7 +167,7 @@ This lowers the risk but does not remove it: a hostile source could still steer 
 
 All logic lives in `src/core` as plain TypeScript with no React and no global state, so every rule above is unit tested.
 `references.ts` splits the text, detects the citation style, and parses numeric reference lists; `authorYear.ts` parses APA lists and in-text citations; `doi.ts` extracts DOIs.
-`claims.ts` splits sentences, finds numeric citations, and builds claims with their per-source scopes.
+`claims.ts` splits sentences, finds numeric citations, and builds claims.
 `evidence.ts` holds the normalisation and the whole-sentence quote check.
 `grading.ts` holds the rubric, the fenced prompt, the reply reader, the warnings, and the headline rule.
 `provider.ts` holds the `ModelProvider` interface, the OpenRouter provider, and the replay provider used by the sample run.
@@ -206,12 +198,12 @@ Judging whether a source is itself trustworthy is out of scope; the app checks o
 Unit tests in Vitest, written before the code they test, run in CI on every push and pull request with lint, type-check, and build.
 `references`: heading variants, numeric and APA lists, DOI forms, style detection.
 `authorYear`: surnames with initials, group authors, accents, particles; parenthetical, narrative, page numbers, prefixes, several years, several sources, unmatched and ambiguous citations, and non-citation parentheses.
-`claims`: abbreviations, decimals, markers after the full stop, blank lines, marker grammar, scopes for split citations, and the fallback to the whole sentence.
+`claims`: abbreviations, decimals, markers after the full stop, blank lines, marker grammar, and claim building.
 `evidence`: normalisation rules, whole-sentence matching, fragments rejected, case kept, short and empty quotes rejected, and neighbouring sentences returned.
 `grading`: reply reading with chatter and fences, rejected grades, reason sanitising, each warning, kept and discarded grades, the headline rule including disagreement, and the prompt fence.
 `provider`: the documented request and response shapes, the `:free` guard, and each error kind.
 `europepmc` and `sources`: search and full-text URLs, JATS extraction, truncation, every failure path, abstract rebuilding with gap markers, and the full text then abstract chain.
-`pipeline`: the synthetic sample end to end, scoped prompts, unreachable sources skipping the model, failed calls as "check failed", and a rejected key stopping the run.
+`pipeline`: the synthetic sample end to end, the whole sentence in every prompt (including sentences a reader would split), mixed support versus disagreement, unreachable sources skipping the model, failed calls as "check failed", and a rejected key stopping the run.
 Component tests render the app and cover the sample run, every step 1 error, the missing key, the `:free` guard, key storage, and the theme switch.
 Manual checks in Chrome at 1440 and 390 CSS pixels wide, in light and dark, are saved under `docs/screenshots/`.
 Before submission, one real run with a free model is recorded and replaces the synthetic sample, and the label changes to say when it was recorded and with which model.

@@ -59,10 +59,17 @@ describe("resolveSources", () => {
 });
 
 describe("runCheck", () => {
-  it("sends the scope of each citation and a fenced source to the model", async () => {
-    const analysis = analyzeText(
-      "Memory scores rose sharply [1]; the reaction times did not change at all [2].\nReferences\n[1] A.\n[2] B.",
-    );
+  // No part of a sentence is ever cut off for one source: a continuation can
+  // lean on the rest of the sentence in ways a word-level rule cannot see.
+  it.each([
+    "Memory scores rose sharply [1], while reaction times did not change at all [2].",
+    "The treatment improved survival in adults [1]; the placebo, only in younger adults [2].",
+    "Drug X improves survival in adults [1]; the placebo did so by a smaller margin [2].",
+    "Drug X improves survival in adults [1]; the drug was well tolerated in older adults [2].",
+    "Drug X improves survival in adults [1]; it was also confirmed in older adults [2].",
+    "Drug X improves survival in adults [1], but most notably reduces mortality in adults [2].",
+  ])("sends the whole sentence and a fenced source to the model for every source: %j", async (sentence) => {
+    const analysis = analyzeText(`${sentence}\nReferences\n[1] A.\n[2] B.`);
     const users: string[] = [];
     const provider: ModelProvider = {
       label: "spy",
@@ -79,10 +86,12 @@ describe("runCheck", () => {
       },
       provider,
     );
-    expect(users[0]).toMatch(/PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nMemory scores rose sharply\n/);
-    expect(users[1]).toMatch(
-      /PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nthe reaction times did not change at all\n/,
-    );
+    const text = analysis.claims[0]?.text ?? "";
+    expect(users).toHaveLength(2);
+    for (const user of users) {
+      expect(user).toContain(`>\n${text}\n</student-`);
+      expect(user).not.toContain("PART CITED");
+    }
     expect(users[1]).toMatch(/<source-[0-9a-f]{12}>\nSource two.\n<\/source-[0-9a-f]{12}>/);
   });
 
@@ -115,30 +124,27 @@ describe("runCheck", () => {
     }
   });
 
-  it("keeps mixed support separate from disagreement across citation scopes", async () => {
+  it("calls sources that each back part of a sentence mixed support, not disagreement", async () => {
     const survival = "Survival improved in the adult treatment group.";
     const mortality = "Mortality did not fall in the adult treatment group.";
-    const replies = {
-      "c1:1": JSON.stringify({ grade: "supported", evidence: survival, reason: "r" }),
-      "c1:2": JSON.stringify({ grade: "not_supported", evidence: mortality, reason: "r" }),
-      "c1:3": JSON.stringify({ grade: "not_supported", evidence: survival, reason: "r" }),
-    };
     const sources: Record<number, SourceText> = {
       1: { status: "ok", text: survival, origin: "pasted" },
       2: { status: "ok", text: mortality, origin: "pasted" },
-      3: { status: "ok", text: survival, origin: "pasted" },
     };
-    for (const [sentence, headline] of [
-      ["Survival improved in adults [1]; the mortality rate was lower in adults [2].", "not_every_source_backs_it"],
-      ["Survival improved in adults [1, 2].", "sources_disagree"],
-      ["Survival improved in adults [1, 3]; the mortality rate was lower in adults [2].", "sources_disagree"],
+    const analysis = analyzeText(
+      "Survival improved in adults [1]; the mortality rate fell in adults [2].\nReferences\n[1] First.\n[2] Second.",
+    );
+    for (const [first, headline] of [
+      ["partly_supported", "not_every_source_backs_it"],
+      ["supported", "sources_disagree"],
     ]) {
-      const analysis = analyzeText(`${sentence}\nReferences\n[1] First.\n[2] Second.\n[3] Third.`);
+      const replies = {
+        "c1:1": JSON.stringify({ grade: first, evidence: survival, reason: "r" }),
+        "c1:2": JSON.stringify({ grade: "not_supported", evidence: mortality, reason: "r" }),
+      };
       const report = await runCheck(analysis, sources, createReplayProvider(replies));
+      expect(report.results[0]?.perSource.map((p) => p.judgement.grade)).toEqual([first, "not_supported"]);
       expect(report.results[0]?.headline).toBe(headline);
-      expect(report.results[0]?.perSource.map((p) => p.judgement.grade)).toEqual(
-        analysis.claims[0]?.refs.map((ref) => ref === 1 ? "supported" : "not_supported"),
-      );
     }
   });
 

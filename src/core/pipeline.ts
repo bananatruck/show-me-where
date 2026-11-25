@@ -105,8 +105,8 @@ export async function runCheck(
       // A cited reference that is not in the list counts as a source that could
       // not be read, so it can never sit silently behind a backing headline.
       headline: headlineGrade([
-        ...perSource.map((p) => ({ grade: p.judgement.grade, scope: claim.scopes[p.ref] ?? claim.text })),
-        ...claim.unresolved.map((): { grade: Grade; scope: string } => ({ grade: "source_not_reachable", scope: claim.text })),
+        ...perSource.map((p) => p.judgement.grade),
+        ...claim.unresolved.map((): Grade => "source_not_reachable"),
       ]),
       perSource,
     });
@@ -127,10 +127,8 @@ async function judgeOne(
   if (!source || source.status === "unreachable") {
     return appVerdict("source_not_reachable", source?.reason ?? NO_DOI_REASON);
   }
-  const scope = claim.scopes[ref] ?? claim.text;
   const { system, user } = buildPrompt({
     sentence: claim.text,
-    scope,
     source: source.text,
     tag: randomTag(),
   });
@@ -142,5 +140,5 @@ async function judgeOne(
     const message = error instanceof Error ? error.message : String(error);
     return appVerdict("check_failed", `The model call failed: ${message}`);
   }
-  return judgeReply(raw, source.text, scope);
+  return judgeReply(raw, source.text, claim.text);
 }
