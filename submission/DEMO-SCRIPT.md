@@ -46,11 +46,13 @@ Show the caffeine claim, then the last claim.
 
 ## 2:10 to 2:30, live mode and privacy
 
+Scroll to the summary panel while the sample results are still visible.
+Point at the services list, which reads "None" for the sample.
 Switch to "Live with your key".
 "In a live run, DOIs go to Europe PMC for open-access full text, then OpenAlex for the abstract, and each claim goes to a free OpenRouter model under my own key."
 "The key is kept only in the page's memory, never stored, and the summary lists every service that was called."
 
 ## 2:30 to 2:40, close
 
-Scroll to the summary panel.
+Keep the live-mode privacy note in view.
 "The app checks that every quote is really in the source. Whether it backs the claim is for me to read, and now I know exactly where to look."
