@@ -90,19 +90,24 @@ export function App() {
 
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
-  function reset() {
+  function invalidateCheck() {
     // Any check still running belongs to the text being replaced; disown it
     // and cancel its requests, so no more claims or key leave the browser.
     runRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
     setBusy(false);
-    setAnalysis(null);
-    setProblem(null);
     setReport(null);
+    setSources({});
     setServices([]);
     setError(null);
     setProgress("");
+  }
+
+  function reset() {
+    invalidateCheck();
+    setAnalysis(null);
+    setProblem(null);
   }
 
   function switchMode(next: Mode) {
@@ -358,7 +363,10 @@ export function App() {
                         <textarea
                           rows={3}
                           value={pasted[n] ?? ""}
-                          onChange={(e) => setPasted({ ...pasted, [n]: e.target.value })}
+                          onChange={(e) => {
+                            invalidateCheck();
+                            setPasted({ ...pasted, [n]: e.target.value });
+                          }}
                         />
                       </label>
                     )}

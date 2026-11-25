@@ -101,7 +101,8 @@ For a reference with a DOI, the app first asks Europe PMC for an open-access cop
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
-When a check is superseded (the text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
+When a check is superseded (the document or pasted source text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
+Editing pasted source text also clears the previous report and progress, while keeping the claims and edited source ready for another check.
 Each source request is abandoned after 20 seconds and each model call after 120 seconds, so a slow service turns into "not reachable" or "check failed" instead of a page that waits forever; on 2026-11-24 a Europe PMC search took 15.7 seconds from this machine.
 The app never uses a third-party CORS proxy, because a proxy would receive the user's text and key without the user knowing.
 What leaves the browser in a live run: the DOI goes to Europe PMC and, when needed, to OpenAlex; the claim and the source text go to OpenRouter under the user's own key; nothing else is sent anywhere.

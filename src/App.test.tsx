@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { REASONS } from "./core/grading";
@@ -291,4 +291,60 @@ describe("App", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(window.fetch).toHaveBeenCalledTimes(1);
   });
+  it("clears a completed check when pasted source text changes and can check the replacement", async () => {
+    const quote = "Treatment improved survival in adults.";
+    vi.spyOn(window, "fetch").mockImplementation(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ grade: "supported", evidence: quote, reason: "Same result." }) } }],
+    })));
+    render(<App />);
+    goLive("Treatment improved survival in adults [1].\nReferences\n[1] Trial.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), { target: { value: quote } });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await screen.findByRole("list", { name: "Results" });
+
+    const replacement = `${quote} A second sentence gives more context.`;
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), { target: { value: replacement } });
+    expect(screen.queryByRole("list", { name: "Results" })).toBeNull();
+    expect(screen.getByRole("list", { name: "Cited claims" })).toBeTruthy();
+    expect(screen.getByLabelText("Source text for [1]")).toHaveProperty("value", replacement);
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await screen.findByRole("list", { name: "Results" });
+    expect(window.fetch).toHaveBeenCalledTimes(2);
+    expect(window.fetch).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      body: expect.stringContaining(replacement),
+    }));
+  });
+
+  it("cancels a check when pasted source text changes and ignores a late reply", async () => {
+    let answer: (response: Response) => void = () => {};
+    let signal: AbortSignal | null | undefined;
+    vi.spyOn(window, "fetch").mockImplementation((_input, init) => {
+      signal = init?.signal;
+      return new Promise<Response>((resolve) => { answer = resolve; });
+    });
+    render(<App />);
+    goLive("Treatment improved survival in adults [1]. Mortality fell in adults [1].\nReferences\n[1] Trial.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "Treatment improved survival in adults." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), { target: { value: "Replacement source text." } });
+    expect(signal?.aborted).toBe(true);
+    expect(screen.getByRole("button", { name: "Check claims" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByText(/Fetching source text|Checked \d+ of/)).toBeNull();
+    await act(async () => {
+      answer(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        grade: "supported", evidence: "Treatment improved survival in adults.", reason: "Same result.",
+      }) } }] })));
+    });
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("list", { name: "Results" })).toBeNull();
+    expect(screen.getByLabelText("Source text for [1]")).toHaveProperty("value", "Replacement source text.");
+  });
+
 });
