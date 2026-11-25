@@ -1,3 +1,4 @@
+import { sentenceSpans } from "./claims";
 import type { FetchLike, SourceText } from "./types";
 
 /** Build the Europe PMC search URL for a quoted DOI. */
@@ -44,6 +45,34 @@ export function extractJatsText(
         const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
         if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
       });
+      // Flattening script markup would turn 10 to the sixth into 106.
+      // Use explicit notation, except for raised bibliography markers.
+      for (const script of [...copy.querySelectorAll("sup, sub")].reverse()) {
+        if (script.closest('xref[ref-type="bibr"]')) continue;
+        const citations = [...script.querySelectorAll('xref[ref-type="bibr"]')];
+        const remainder = document.createElement("span");
+        remainder.append(script.cloneNode(true));
+        remainder.querySelectorAll('xref[ref-type="bibr"]').forEach((xref) => xref.remove());
+        if (citations.length > 0 && /^[\s,;[\]\u2013-]*$/.test(remainder.textContent ?? "")) {
+          // Keep the separator between each pair of references: "1\u20133" is a
+          // range that includes 2, not the list "1, 3". Commas, semicolons and
+          // adjacent references are a list.
+          const UNIT = "\u0001";
+          for (const xref of citations) {
+            xref.textContent = UNIT + (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "") + UNIT;
+          }
+          const parts = (script.textContent ?? "").split(UNIT);
+          let inner = parts[1] ?? "";
+          for (let i = 3; i < parts.length; i += 2) {
+            const between = (parts[i - 1] ?? "").replace(/[\s[\]]/g, "");
+            inner += (/^[\u2013-]$/.test(between) ? between : ", ") + (parts[i] ?? "");
+          }
+          script.replaceWith(` [${inner}]`);
+        } else {
+          const marker = script.localName === "sup" ? "^" : "_";
+          script.replaceWith(`${marker}(${(script.textContent ?? "").trim()})`);
+        }
+      }
       // A nested block (a list, a paragraph in a paragraph) is a paragraph of
       // its own: mark both sides, then split there, so the boundary survives
       // the whitespace clean-up below.
@@ -127,9 +156,17 @@ export async function fetchFullTextByDoi(
   if (text === "") return unreadableText;
   if (text.length > MAX_FULL_TEXT_CHARS) {
     const boundary = text.lastIndexOf("\n\n", MAX_FULL_TEXT_CHARS - 1);
+    // Split the original text, never a cut prefix whose last fragment would
+    // look like a whole sentence after losing its trailing qualification.
+    const end = boundary === -1
+      ? sentenceSpans(text).filter((span) => span.end <= MAX_FULL_TEXT_CHARS).at(-1)?.end
+      : boundary;
+    if (end === undefined || end === 0) {
+      return { status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit." };
+    }
     return {
       status: "ok",
-      text: text.slice(0, boundary === -1 ? MAX_FULL_TEXT_CHARS : boundary),
+      text: text.slice(0, end),
       origin: "europepmc",
       truncated: true,
     };

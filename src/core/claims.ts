@@ -235,76 +235,6 @@ function removeSpans(sentence: string, spans: readonly Citation[]): string {
   return out + sentence.slice(at);
 }
 
-const MIN_SCOPE_WORDS = 3;
-
-/** Words that make the start of a sentence a frame over everything after it. */
-const SHARED_FRAME =
-  /\b(?:no|not|never|none|neither|nor|without|cannot|unlikely|unclear|whether|if|that|may|might|could)\b|n't\b/i;
-
-/** Words that cannot begin a subject: adverbs, prepositions and negations. */
-const NOT_A_SUBJECT = new Set(
-  "not no also only still then thus so in on at for with to by from of as being having more less even yet instead rather especially mainly mostly particularly notably".split(
-    " ",
-  ),
-);
-
-/**
- * Whether a later part, after its opener, starts with something that can be
- * a subject: "while reaction times did not change" does, but "while reducing
- * mortality" and "but not in older patients" lean on the first part's subject.
- */
-function opensWithSubject(part: string): boolean {
-  const rest = part.replace(CLAUSE_OPENER, "");
-  const first = /[\p{L}\p{N}]+/u.exec(rest)?.[0]?.toLowerCase();
-  if (!first) return false;
-  return !NOT_A_SUBJECT.has(first) && !/(?:ing|ed)$/.test(first);
-}
-
-/** How a later part of a sentence must open to stand as its own clause. */
-const CLAUSE_OPENER = /^\s*(?:;|,?\s*(?:while|whereas|but|although|though|however)\b)/i;
-
-/**
- * The part of the sentence each citation is attached to. A sentence is split
- * only when it is safe: every citation is parenthetical, there are at least
- * two, nothing but punctuation follows the last one (so no shared predicate
- * is cut off, as in "Studies [1] and trials [2] proved X"), and every part has
- * at least three words. Otherwise every source is checked against the whole
- * sentence. A reference cited twice is always checked against the whole.
- */
-function scopesFor(sentence: string, citations: readonly Citation[], text: string): Record<number, string> {
-  const whole: Record<number, string> = {};
-  for (const c of citations) for (const r of c.refs) whole[r] = text;
-
-  const last = citations.at(-1);
-  if (
-    citations.length < 2 ||
-    citations.some((c) => c.narrative) ||
-    !last ||
-    !/^[\s.!?;:,"')\]\u201D\u2019]*$/.test(sentence.slice(last.end))
-  ) {
-    return whole;
-  }
-
-  const seen = new Map<number, number>();
-  for (const c of citations) for (const r of c.refs) seen.set(r, (seen.get(r) ?? 0) + 1);
-  const scopes: Record<number, string> = {};
-  let previousEnd = 0;
-  for (const [k, c] of citations.entries()) {
-    const raw = sentence.slice(previousEnd, c.start);
-    // A frame at the start ("No evidence shows that", "It is unlikely that")
-    // governs every part, so the first part must be free of one.
-    if (k === 0 && SHARED_FRAME.test(raw)) return whole;
-    // A later part must open a clause of its own ("; ...", ", while ...");
-    // "or reduces mortality" leans on the first part's subject and frame.
-    if (k > 0 && !(CLAUSE_OPENER.test(raw) && opensWithSubject(raw))) return whole;
-    const segment = tidy(raw).replace(/^[,;:]\s*/, "");
-    if (segment.split(/\s+/).filter(Boolean).length < MIN_SCOPE_WORDS) return whole;
-    for (const r of c.refs) scopes[r] = (seen.get(r) ?? 0) > 1 ? text : segment;
-    previousEnd = c.end;
-  }
-  return scopes;
-}
-
 /** Numeric citations removed from a sentence, kept for the marker grammar tests. */
 export function parseMarkers(
   sentence: string,
@@ -344,7 +274,6 @@ export function extractClaims(
       text,
       sentence,
       refs: [...new Set(citations.flatMap((c) => c.refs))].sort((a, b) => a - b),
-      scopes: scopesFor(sentence, citations, text),
       unresolved: [...new Set(found.unresolved)],
     });
   }

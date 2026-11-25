@@ -81,13 +81,16 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 ## Claims that cite several sources
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
-When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
-The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however" and then with something that can be a subject (not an "-ing" or "-ed" word, a preposition, an adverb, or "not"), the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
-Narrative citations, a single citation group, a reference cited twice, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
-The model always sees the whole sentence for context and the part it is asked to grade.
-A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
+Every source is graded against the whole sentence, even when its citation sits after only one part, as in "Scores rose sharply [1], while reaction times did not change [2]".
+A sentence is never cut into a part for each source: a later part can lean on the rest of the sentence for its subject, verb or frame ("but often has adverse effects", "; the placebo, only in younger adults", "; the placebo did so", "; the drug was well tolerated"), and no word-level rule tells those apart from clauses that stand alone.
+A part graded without what it leans on could show a wrong grade as supported, while grading the whole sentence can only lower a grade.
+The cost is precision: a source cited for one half of a sentence answers for all of it, so it usually reads "partly supported".
+Both `supported` and `partly_supported` count as backing grades.
+If every cited source has a backing grade, the headline is `partly_supported` when any source has that grade, otherwise `supported`.
 Each source's own grade is shown beside it whenever the headline does not already say it.
-When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
+If some sources back the sentence and others do not, the headline is "Not every cited source backs it".
+The exception is a `supported` source paired with a `not_supported` source, which gives "Sources disagree".
+In particular, a source that backs only part of the sentence next to one that contradicts it gives "Not every cited source backs it", since each may cover a different part.
 When no source backs the claim, the headline is the best evidenced of the rest.
 A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
 So a contradicting or unchecked source is never hidden behind a supporting one.
@@ -98,10 +101,15 @@ A browser can only read a response from another site when that site sends CORS h
 On 2026-11-24 these endpoints answered a request carrying an `Origin` header with `access-control-allow-origin: *`: `api.openalex.org`, `api.crossref.org`, the Europe PMC REST API at `www.ebi.ac.uk/europepmc/webservices/rest`, and `openrouter.ai/api/v1`, whose preflight also allows the `Authorization` header.
 `export.arxiv.org` answered without that header, so arXiv cannot be read directly from the browser.
 For a reference with a DOI, the app first asks Europe PMC for an open-access copy and reads the abstract and body paragraphs of its JATS full text, leaving out references, tables, figures, and back matter.
+Scientific superscripts and subscripts are written explicitly, such as `10^(6)` and `H_(2)O`, before text extraction so they cannot become different numbers or formulas.
+Raised bibliography references stay citation markers such as `[1]`.
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
+If the first paragraph exceeds the limit, only complete sentences that fit are retained.
+If no sentence fits, full text is unavailable and the app tries the abstract.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
-When a check is superseded (the text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
+When a check is superseded (the document or pasted source text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
+Editing pasted source text also clears the previous report and progress, while keeping the claims and edited source ready for another check.
 Each source request is abandoned after 20 seconds and each model call after 120 seconds, so a slow service turns into "not reachable" or "check failed" instead of a page that waits forever; on 2026-11-24 a Europe PMC search took 15.7 seconds from this machine.
 The app never uses a third-party CORS proxy, because a proxy would receive the user's text and key without the user knowing.
 What leaves the browser in a live run: the DOI goes to Europe PMC and, when needed, to OpenAlex; the claim and the source text go to OpenRouter under the user's own key; nothing else is sent anywhere.
@@ -109,7 +117,7 @@ On 2026-11-24 a live-mode run in Chrome from a local build reached Europe PMC fu
 
 ## The grading rubric the model is held to
 
-The model sees one claim, the part cited to one source, and that source's text, and answers in JSON with `grade`, `evidence`, and `reason`.
+The model sees one whole claim sentence and one source's text, and answers in JSON with `grade`, `evidence`, and `reason`.
 `supported`: the source states the claim, including its numbers, direction, strength, population, and conditions.
 `partly_supported`: the source states part of the claim, or states it with a narrower scope, a different population or condition, a weaker strength, a hedge, or different numbers.
 `not_supported`: the source states something that contradicts the claim or is incompatible with it.
@@ -128,8 +136,9 @@ For any grade other than `cannot_tell`, the quote must be one or more whole sent
 "Occur" means a literal substring match after only these normalisations, applied to both sides: Unicode NFC (not NFKC, which would turn a superscript 10 to the sixth into 106), typographic ligatures expanded, soft hyphens and zero-width characters removed, curly quotes made straight, all dash and hyphen variants made plain hyphens, and runs of whitespace made one space; one pair of quotation marks around the whole quote is ignored.
 The match is case sensitive, and no other fuzzy matching is allowed.
 A quote shorter than 20 characters after normalisation is rejected.
-A quote that shares no key word with the claim is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
-Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes.
+When the claim has extractable key words, a quote that shares none of them is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes this keyword check.
+When the claim has no extractable key words, only the keyword rejection is skipped; the quote must still pass the length, exact-text, and whole-sentence checks.
 The model's reason, and any discarded quote, are shown as the model's words, with links (with or without a scheme) removed and the length capped at 280 characters.
 A source with no text gives "source not reachable" without calling the model.
 A failed model call (rate limit, network, server error) gives "check failed", never a grade and never "cannot tell"; a rejected key stops the run with a message.
@@ -149,18 +158,18 @@ The closing panel restates what the app checked and what it did not.
 ## Prompt injection
 
 Source text is untrusted data, and so is any text the student pastes.
-The student's sentence, the cited part, and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
+The student's sentence and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
 The system prompt says that both the student's sentence and the source are data.
 The rules are repeated after the source, so the source never has the last word in the prompt.
 The model's reason is shown as its words with links removed, and its grade only survives if its quote is a whole sentence of the source.
-A quote that shares no key word with the claim is discarded, so steering the model toward an unrelated real sentence fails.
+When the claim has extractable key words, a quote that shares none of them is discarded, so steering the model toward an unrelated real sentence fails.
 This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence that shares a word with the claim, and the README says so.
 
 ## Architecture
 
 All logic lives in `src/core` as plain TypeScript with no React and no global state, so every rule above is unit tested.
 `references.ts` splits the text, detects the citation style, and parses numeric reference lists; `authorYear.ts` parses APA lists and in-text citations; `doi.ts` extracts DOIs.
-`claims.ts` splits sentences, finds numeric citations, and builds claims with their per-source scopes.
+`claims.ts` splits sentences, finds numeric citations, and builds claims.
 `evidence.ts` holds the normalisation and the whole-sentence quote check.
 `grading.ts` holds the rubric, the fenced prompt, the reply reader, the warnings, and the headline rule.
 `provider.ts` holds the `ModelProvider` interface, the OpenRouter provider, and the replay provider used by the sample run.
@@ -191,12 +200,12 @@ Judging whether a source is itself trustworthy is out of scope; the app checks o
 Unit tests in Vitest, written before the code they test, run in CI on every push and pull request with lint, type-check, and build.
 `references`: heading variants, numeric and APA lists, DOI forms, style detection.
 `authorYear`: surnames with initials, group authors, accents, particles; parenthetical, narrative, page numbers, prefixes, several years, several sources, unmatched and ambiguous citations, and non-citation parentheses.
-`claims`: abbreviations, decimals, markers after the full stop, blank lines, marker grammar, scopes for split citations, and the fallback to the whole sentence.
+`claims`: abbreviations, decimals, markers after the full stop, blank lines, marker grammar, and claim building.
 `evidence`: normalisation rules, whole-sentence matching, fragments rejected, case kept, short and empty quotes rejected, and neighbouring sentences returned.
 `grading`: reply reading with chatter and fences, rejected grades, reason sanitising, each warning, kept and discarded grades, the headline rule including disagreement, and the prompt fence.
 `provider`: the documented request and response shapes, the `:free` guard, and each error kind.
 `europepmc` and `sources`: search and full-text URLs, JATS extraction, truncation, every failure path, abstract rebuilding with gap markers, and the full text then abstract chain.
-`pipeline`: the synthetic sample end to end, scoped prompts, unreachable sources skipping the model, failed calls as "check failed", and a rejected key stopping the run.
+`pipeline`: the synthetic sample end to end, the whole sentence in every prompt (including sentences a reader would split), mixed support versus disagreement, unreachable sources skipping the model, failed calls as "check failed", and a rejected key stopping the run.
 Component tests render the app and cover the sample run, every step 1 error, the missing key, the `:free` guard, key storage, and the theme switch.
 Manual checks in Chrome at 1440 and 390 CSS pixels wide, in light and dark, are saved under `docs/screenshots/`.
 Before submission, one real run with a free model is recorded and replaces the synthetic sample, and the label changes to say when it was recorded and with which model.

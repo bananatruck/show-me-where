@@ -39,12 +39,6 @@ export interface Claim {
   sentence: string;
   /** Reference numbers this sentence cites, in ascending order. */
   refs: number[];
-  /**
-   * For each cited reference, the part of the sentence that citation is
-   * attached to. Equals text unless the sentence cites different sources for
-   * different parts, as in "A rose (Smith, 2020) while B fell (Lee, 2019)".
-   */
-  scopes: Record<number, string>;
   /** Citations in this sentence that match nothing in the reference list, such as "[3]". */
   unresolved: string[];
 }

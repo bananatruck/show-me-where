@@ -228,6 +228,27 @@ describe("narrative readings", () => {
     });
   });
 
+  it("keeps an apostrophe surname distinct from its suffix", () => {
+    for (const apostrophe of ["'", "\u2019", "\u2018"]) {
+      const surname = `O${apostrophe}Connor`;
+      const refs = parseAuthorYearReferences(`Connor, A. (2020). First.\n${surname}, B. (2020). Second.`);
+      const sentence = `${surname} (2020) found it.`;
+      expect(findAuthorYearCitations(sentence, refs)).toEqual({
+        citations: [{ start: 0, end: sentence.indexOf(" found"), refs: [2], narrative: true }],
+        unresolved: [],
+      });
+      expect(findAuthorYearCitations("Connor (2020) found it.", refs).citations[0]?.refs).toEqual([1]);
+      expect(findAuthorYearCitations("O'Connor (2020) found it.", refs).citations[0]?.refs).toEqual([2]);
+    }
+  });
+
+  it("does not begin a narrative citation inside an unmatched name token", () => {
+    const refs = parseAuthorYearReferences("Connor, A. (2020). First.");
+    for (const prefix of ["o'", "o\u2019", "o\u2018", "o-", "o", "o\u0301"]) {
+      expect(findAuthorYearCitations(`${prefix}Connor (2020) found it.`, refs).citations).toEqual([]);
+    }
+  });
+
   it("still drops an opening word such as Recently or However", () => {
     const refs = parseAuthorYearReferences("Brown, K. (2018). A study.");
     expect(findAuthorYearCitations("However, Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);

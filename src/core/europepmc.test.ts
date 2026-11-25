@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
+import { judgeReply } from "./grading";
 import { checkEvidence } from "./evidence";
-import type { FetchLike } from "./types";
+import type { FetchLike, SourceText } from "./types";
 import {
   europePmcSearchUrl,
   europePmcFullTextUrl,
@@ -61,6 +62,37 @@ describe("europepmc", () => {
     const xml =
       '<article><body><p>Sleep latency fell by 15 minutes.<xref ref-type="bibr" rid="B1">1</xref> Total sleep time also rose.</p></body></article>';
     expect(extractJatsText(xml)).toBe("Sleep latency fell by 15 minutes. [1] Total sleep time also rose.");
+  });
+
+  it("preserves scientific superscripts and subscripts before checking evidence", () => {
+    const xml = "<article><body><p>The concentration was 10<sup><italic>6</italic></sup> cells/mL.</p>" +
+      "<p>The solution contained H<sub>2</sub>O and measured m<sup>2</sup>.</p></body></article>";
+    const text = extractJatsText(xml);
+    const quote = "The concentration was 10^(6) cells/mL.";
+    expect(text).toBe(`${quote}\n\nThe solution contained H_(2)O and measured m^(2).`);
+    expect(checkEvidence(quote, text)).toMatchObject({ ok: true });
+    expect(checkEvidence("The concentration was 106 cells/mL.", text)).toEqual({ ok: false, reason: "not_found" });
+    expect(judgeReply(JSON.stringify({
+      grade: "supported", evidence: "The concentration was 106 cells/mL.", reason: "Same concentration.",
+    }), text, "The concentration was 106 cells/mL.")).toMatchObject({ grade: "cannot_tell" });
+  });
+
+  it("keeps superscript bibliography references as spaced citation markers", () => {
+    for (const [citation, marker] of [
+      ['<sup><xref ref-type="bibr">1</xref></sup>', "[1]"],
+      ['<xref ref-type="bibr"><sup>1</sup></xref>', "[1]"],
+      ['<sup><xref ref-type="bibr">1</xref>, <xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+      ['<sup><xref ref-type="bibr">1</xref>–<xref ref-type="bibr">3</xref></sup>', "[1–3]"],
+      ['<sup><xref ref-type="bibr">1</xref>-<xref ref-type="bibr">3</xref></sup>', "[1-3]"],
+      ['<sup><xref ref-type="bibr">1</xref>, <xref ref-type="bibr">4</xref>–<xref ref-type="bibr">6</xref></sup>', "[1, 4–6]"],
+      ['<sup><xref ref-type="bibr">1</xref>; <xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+      ['<sup><xref ref-type="bibr">1</xref><xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+    ]) {
+      const text = extractJatsText(`<article><body><p>Treatment improved survival in adults.${citation} Mortality also fell.</p></body></article>`);
+      expect(text).not.toContain("^(");
+      expect(text).toBe(`Treatment improved survival in adults. ${marker} Mortality also fell.`);
+      expect(checkEvidence("Treatment improved survival in adults.", text)).toMatchObject({ ok: true });
+    }
   });
 
   it("extractJatsText reads a paragraph nested in a list once", () => {
@@ -165,19 +197,43 @@ describe("europepmc", () => {
     }
   });
 
+  it("retains only complete sentences when the first paragraph exceeds the limit", async () => {
+    const complete = "Treatment improved survival in adults.";
+    const incomplete = "Survival improved " + "substantially ".repeat(10000) + ", but only in the exploratory subgroup.";
+    const fetchImpl = vi.fn<FetchLike>()
+      .mockResolvedValueOnce(searchReply())
+      .mockResolvedValueOnce(new Response(`<article><body><p>${complete} ${incomplete}</p></body></article>`));
+    const source = await fetchFullTextByDoi("10.1234/long", fetchImpl);
+    expect(source).toEqual({ status: "ok", text: complete, origin: "europepmc", truncated: true });
+    if (source.status === "ok") {
+      expect(checkEvidence(complete, source.text)).toMatchObject({ ok: true });
+      expect(checkEvidence(incomplete.slice(0, 100), source.text).ok).toBe(false);
+    }
+  });
+
+  it("reports full text unavailable when no complete sentence fits within the limit", async () => {
+    for (const paragraph of ["a".repeat(MAX_FULL_TEXT_CHARS + 1),
+      "Treatment improved survival " + "substantially ".repeat(10000) + ", but not in the final analysis."]) {
+      const fetchImpl = vi.fn<FetchLike>()
+        .mockResolvedValueOnce(searchReply())
+        .mockResolvedValueOnce(new Response(`<article><body><p>${paragraph}</p></body></article>`));
+      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual({
+        status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit.",
+      });
+    }
+  });
+
   it("fetchFullTextByDoi truncates very long text at a paragraph boundary", async () => {
     expect(MAX_FULL_TEXT_CHARS).toBe(120000);
-    for (const [paragraphs, text, truncated] of [
-      [["a".repeat(70000), "b".repeat(60000)], "a".repeat(70000), true],
-      [["a".repeat(120001)], "a".repeat(120000), true],
-      [["a".repeat(120000)], "a".repeat(120000), false],
-    ] satisfies [string[], string, boolean][]) {
+    for (const [paragraphs, expected] of [
+      [["a".repeat(70000), "b".repeat(60000)], { status: "ok", text: "a".repeat(70000), origin: "europepmc", truncated: true }],
+      [["a".repeat(120001)], { status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit." }],
+      [["a".repeat(120000)], { status: "ok", text: "a".repeat(120000), origin: "europepmc" }],
+    ] satisfies [string[], SourceText][]) {
       const fetchImpl = vi.fn<FetchLike>()
         .mockResolvedValueOnce(searchReply())
         .mockResolvedValueOnce(new Response(`<article><body>${paragraphs.map((p) => `<p>${p}</p>`).join("")}</body></article>`));
-      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual({
-        status: "ok", text, origin: "europepmc", ...(truncated ? { truncated: true } : {}),
-      });
+      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual(expected);
     }
   });
 });

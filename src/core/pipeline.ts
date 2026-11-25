@@ -127,10 +127,8 @@ async function judgeOne(
   if (!source || source.status === "unreachable") {
     return appVerdict("source_not_reachable", source?.reason ?? NO_DOI_REASON);
   }
-  const scope = claim.scopes[ref] ?? claim.text;
   const { system, user } = buildPrompt({
     sentence: claim.text,
-    scope,
     source: source.text,
     tag: randomTag(),
   });
@@ -142,5 +140,5 @@ async function judgeOne(
     const message = error instanceof Error ? error.message : String(error);
     return appVerdict("check_failed", `The model call failed: ${message}`);
   }
-  return judgeReply(raw, source.text, scope);
+  return judgeReply(raw, source.text, claim.text);
 }

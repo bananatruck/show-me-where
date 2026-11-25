@@ -26,7 +26,10 @@ The student ends up reading the right sentence of the right source, which is the
 1. Paste a paragraph and its reference list, in APA author-year style or numbered style.
 2. The app lists every cited claim, every sentence with no citation, and every citation that matches nothing in the reference list (bracketed numbers above 999 are read as years).
 3. For each source with a DOI, it reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources can be pasted in.
-4. Each claim is checked against each of its sources. When a sentence cites different sources at different points, each source is checked against only the part of the sentence its citation follows; narrative citations such as "Smith (2020) found", a single citation group, and very short parts fall back to the whole sentence.
+4. Each claim is checked against each of its sources.
+   Every source is checked against the whole sentence, even when its citation follows only one part, as in "A rose [1], while B fell [2]".
+   The app never cuts a sentence into parts, because a part can lean on the rest of the sentence ("; the placebo, only in younger adults"), and grading it alone could show a wrong grade as supported.
+   The cost is that a source cited for half a sentence usually reads "partly supported" because it answers for the whole sentence.
 5. Results show the model's reading (supported, partly supported, not supported) or the app's own outcome (cannot tell, source not reachable, check failed, sources disagree), with the verified sentence highlighted in context.
 
 A sample run, labelled on screen as a synthetic hand-written example, shows every outcome with no key and no network calls.
@@ -34,12 +37,16 @@ A sample run, labelled on screen as a synthetic hand-written example, shows ever
 ## AI implementation
 
 - Model: a free OpenRouter model, called from the browser with the student's own key through the OpenRouter chat completions API. The default is `google/gemma-4-31b-it:free`, and the app refuses any model id that does not end in `:free`.
-- The model gets a fixed rubric, the student's sentence, the part of it cited to one source, and that source's text, and must answer in JSON with a grade, one whole sentence copied from the source, and a reason.
+- The model gets a fixed rubric, the student's whole sentence and one source's text, and must answer in JSON with a grade, one whole sentence copied from the source, and a reason.
 - The app, not the model, decides what reaches the student. A grade survives only if its quote is one or more whole sentences found word for word in the source text, after normalising only quotes, dashes, ligatures, invisible characters and whitespace. Quoting part of a sentence is rejected, because a fragment can drop a "no evidence that".
 - Kept grades are worded as the model's reading, and each quote is shown between its neighbouring sentences so the student can see a "However" or a change of population.
 - Deterministic warnings flag a number in the claim that the quote lacks, and negations, hedges, or earlier-work wording in the quote that the claim lacks. Warnings never change a grade.
-- A quote that shares no key word with the claim is discarded, so a model steered into quoting an unrelated real sentence gets nothing through.
-- A claim shows a backing grade only if every cited source backs it; otherwise it reads "Sources disagree" or "Not every cited source backs it".
+- When the claim has extractable key words, a quote that shares none of them is discarded, so a model steered into quoting an unrelated real sentence gets nothing through.
+  A claim with no extractable key words skips this keyword check, while the quote must still be long enough and match whole source sentences.
+- Both `supported` and `partly_supported` count as backing grades.
+  If every cited source has a backing grade, the headline is `partly_supported` when any source has that grade, otherwise `supported`.
+  If some sources back the sentence and others do not, it reads "Not every cited source backs it".
+  The exception is a `supported` source paired with a `not_supported` source, which gives "Sources disagree".
 - A failed model call is shown as "check failed", never as a grade.
 - Source text is fenced in the prompt with a random tag for each call, and the rules are repeated after it, to reduce prompt injection from hostile source text.
 - Everything except the model's reading is deterministic TypeScript, covered by unit and component tests.
@@ -62,7 +69,7 @@ A sample run, labelled on screen as a synthetic hand-written example, shows ever
 - TypeScript, React and Vite, built as a static site; Vitest and Testing Library for tests; ESLint and type-checking in GitHub Actions on every push.
 - Europe PMC REST API and OpenAlex API for source text; OpenRouter chat completions API for the model.
 - The highlighter stroke is adapted from Magic UI's MIT-licensed Highlighter component and draws with rough-notation (MIT). Fonts are Atkinson Hyperlegible and Source Serif 4 (SIL OFL), bundled.
-- The project was built by AI coding agents directed by Kesh.
+- The project was built by AI coding agents directed by Kesh and reviewed by independent automated reviewers.
 
 ## Built with
 

@@ -36,12 +36,20 @@ Only free models, whose ids end in `:free`, are accepted.
 1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
 2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
-4. When a sentence cites different sources in independent clauses ("A rose [1], while B fell [2]"), each source is checked against its own clause. Anything else, including a shared opening such as "No evidence shows that", narrative citations, and parts under three words, is checked against the whole sentence.
+4. Every cited source is checked against the whole sentence, even in "A rose [1], while B fell [2]".
+   The app does not cut a sentence into parts for each source, because a part can lean on the rest of the sentence ("; the placebo, only in younger adults", "but often has adverse effects"), and a part graded without that could show a wrong grade as supported.
+   The cost is precision: a source cited for half a sentence usually reads "partly supported" because it answers for the whole sentence.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
+   Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.
+   Full text is limited to 120,000 characters at a paragraph boundary, or a complete sentence boundary if the first paragraph is too long.
+   If no complete sentence fits, the app tries the abstract.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
-7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
+7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim when the claim has extractable key words. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
-9. A claim shows a backing grade only if every cited source backs it. If one source backs it and another contradicts it, it reads "Sources disagree"; if another source could not be read or checked, it reads "Not every cited source backs it".
+9. Both `supported` and `partly_supported` count as backing grades.
+   If every cited source has a backing grade, the headline is `partly_supported` when any source has that grade, otherwise `supported`.
+   If some sources back the sentence and others do not, it reads "Not every cited source backs it".
+   The exception is a `supported` source paired with a `not_supported` source, which gives "Sources disagree".
 
 ## What it does not do
 
@@ -49,7 +57,7 @@ Only free models, whose ids end in `:free`, are accepted.
 - It does not read paywalled papers, PDFs, or web pages. Paste their text instead.
 - It does not support citation styles other than numbered and APA author-year.
 - It does not judge whether a source is trustworthy.
-- Its prompt-injection defences (a per-call random fence around the student's text and the source, the rules repeated after them, links stripped from model text, and quotes that share no key word with the claim discarded) lower the risk from hostile text but do not remove it. A hostile source could still steer the model to a real sentence that shares a word with the claim.
+- Its prompt-injection defences (a per-call random fence around the student's text and the source, the rules repeated after them, links stripped from model text, and quotes that share no key word with a claim that has extractable key words discarded) lower the risk from hostile text but do not remove it. A hostile source could still steer the model to a real sentence that shares a word with the claim.
 - Sentence boundaries come from a rule-based splitter. It knows common abbreviations, dotted initials such as "J.A." and "U.S.", and ellipses, but an abbreviation it does not know can still end a sentence early, which could let a quote start mid-sentence.
 - A reference line that does not look like the start of an entry is joined to the entry above it. Step 2 shows every source's full text, so check it there.
 - A DOI containing `<` or `>` (old Wiley SICI DOIs) is cut short and will not be found; paste that source's text instead.
@@ -97,4 +105,4 @@ The live-mode error screens used a placeholder key that is not a real key.
 
 ## How it was built
 
-Kesh directed AI coding agents, which wrote the specification, the code, and the tests.
+The project was built by AI coding agents directed by Kesh and reviewed by independent automated reviewers.
