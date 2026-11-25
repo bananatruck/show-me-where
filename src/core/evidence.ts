@@ -53,7 +53,16 @@ function stripOuterQuotes(quote: string): string {
  * qualifier. On success, also returns the sentences just before and after.
  */
 export function checkEvidence(quote: string, source: string): EvidenceCheck {
-  const q = stripOuterQuotes(normalizeForMatch(quote));
+  const normalized = normalizeForMatch(quote);
+  const unchanged = checkNormalizedEvidence(normalized, source);
+  if (unchanged.ok) return unchanged;
+  // Source quotation marks are evidence too. Only retry without a wrapper
+  // after the literal quote fails the same whole-sentence checks.
+  const unwrapped = stripOuterQuotes(normalized);
+  return unwrapped === normalized ? unchanged : checkNormalizedEvidence(unwrapped, source);
+}
+
+function checkNormalizedEvidence(q: string, source: string): EvidenceCheck {
   if (q.length < MIN_EVIDENCE_LENGTH) {
     return { ok: false, reason: "too_short" };
   }

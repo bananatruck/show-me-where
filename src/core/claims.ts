@@ -62,9 +62,11 @@ const ABBREVIATIONS = new Set([
   "dec",
 ]);
 
-// Citation markers that stay with the sentence before them: any bracket right
-// after the stop, or a numeric marker after a space, as in "It rose. [1]".
-const MARKER_RUN = /^(?:\[[^\]\n]*\]|\s+\[\d[\d,\s\u2013-]*\])*/;
+// Only numeric citation syntax can be omitted from evidence after a stop.
+// Bracketed prose may qualify the finding and must remain part of the sentence.
+const MARKER_INNER = String.raw`\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*`;
+const MARKER_RUN = new RegExp(String.raw`^(?:\s*\[${MARKER_INNER}\])*`);
+const MARKER_TAIL = new RegExp(String.raw`[.!?]["')\u201D\u2019]*(?:\s*\[${MARKER_INNER}\])*$`);
 
 function isAbbreviation(textBeforeStop: string): boolean {
   const word = /([A-Za-z][A-Za-z.]*)$/.exec(textBeforeStop)?.[1];
@@ -149,9 +151,7 @@ export function sentenceSpans(text: string): SentenceSpan[] {
     const last = trimmedSpan(text, start, pEnd, pEnd);
     if (last) {
       // A final sentence keeps its own stop when it ends in punctuation and markers.
-      const tail = /[.!?]["')\u201D\u2019]*(?:\[[^\]\n]*\]|\s+\[\d[\d,\s\u2013-]*\])*$/.exec(
-        text.slice(last.start, last.end),
-      );
+      const tail = MARKER_TAIL.exec(text.slice(last.start, last.end));
       if (tail) {
         const punct = /^[.!?]["')\u201D\u2019]*/.exec(tail[0])?.[0].length ?? 0;
         last.stop = last.start + tail.index + punct;
@@ -167,7 +167,7 @@ export function splitSentences(text: string): string[] {
   return sentenceSpans(text).map((span) => text.slice(span.start, span.end).replace(/\s+/g, " "));
 }
 
-const MARKER = /\s*\[(\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*)\]/g;
+const MARKER = new RegExp(String.raw`\s*\[(${MARKER_INNER})\]`, "g");
 const MAX_RANGE = 50;
 
 /** Expands "1, 3-5" into [1, 3, 4, 5], or null if any part is malformed. */
