@@ -94,6 +94,21 @@ describe("findAuthorYearCitations", () => {
     expect(citations).toEqual([{ start: 0, end: 22, refs: [1], narrative: true }]);
   });
 
+  it("resolves each narrative year and reports missing or ambiguous years", () => {
+    const references = parseAuthorYearReferences([
+      "Smith, J. (2020). First study.",
+      "Smith, J. (2021). Second study.",
+      "Smith, A. (2022). Third study.",
+      "Smith, B. (2022). Fourth study.",
+    ].join("\n"));
+    const sentence = "Smith (2020, 2021, 2022, 2023, p. 4) found an improvement.";
+    const result = findAuthorYearCitations(sentence, references);
+    expect(result.citations).toEqual([
+      { start: 0, end: sentence.indexOf(")") + 1, refs: [1, 2], narrative: true },
+    ]);
+    expect(result.unresolved).toEqual(["Smith, 2022", "Smith, 2023"]);
+  });
+
   it("matches group authors and accented names", () => {
     const { citations } = findAuthorYearCitations(
       "Adults need sleep (World Health Organization, 2021; Muller, n.d.).",

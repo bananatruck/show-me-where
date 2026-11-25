@@ -37,6 +37,38 @@ describe("normalizeForMatch", () => {
 });
 
 describe("checkEvidence", () => {
+  // A bracketed qualification after a sentence's stop, with or without a space, belongs to that sentence:
+  // a quote must include it. A genuine following sentence stays a sentence of its own.
+  it.each([
+    ["", ""],
+    ["", " Further research is needed."],
+    [" ", ""],
+    [" ", " Further research is needed."],
+  ])("keeps bracketed qualifications in evidence: separator %j, tail %j", (separator, tail) => {
+    const sentence = "The treatment substantially improved memory performance in the study population.";
+    const qualified = `${sentence}${separator}[but only in mice]`;
+    const source = qualified + tail;
+    expect(checkEvidence(sentence, source)).toEqual({ ok: false, reason: "not_full_sentence" });
+    expect(checkEvidence(qualified, source)).toMatchObject({ ok: true, before: "" });
+    const prior = "The experiment measured memory performance.";
+    expect(checkEvidence(prior, `${prior} ${source}`)).toMatchObject({ ok: true, after: qualified });
+    if (tail) {
+      expect(checkEvidence(tail.trim(), source)).toMatchObject({ ok: true, before: qualified });
+    }
+  });
+
+  it.each(["[1]", " [1, 3-5]", "[1][2]"])("accepts trailing numeric markers: %s", (marker) => {
+    const sentence = "Treatment improved survival in adult patients.";
+    expect(checkEvidence(sentence, sentence + marker)).toMatchObject({ ok: true });
+  });
+
+  it.each(['"', "\u201C"])("preserves source quotation marks: %s", (open) => {
+    const close = open === '"' ? '"' : "\u201D";
+    const quote = `${open}Treatment improved survival in adults.${close}`;
+    expect(checkEvidence(quote, quote)).toEqual({ ok: true, before: "", after: "" });
+    expect(checkEvidence(`"${quote}"`, quote)).toMatchObject({ ok: true });
+  });
+
   it("accepts a whole sentence from the source and gives its neighbours", () => {
     expect(checkEvidence("Participants slept 7.1 hours on average.", SOURCE)).toEqual({
       ok: true,

@@ -64,6 +64,22 @@ function isAbstractIndex(value: unknown): value is Record<string, number[]> {
   );
 }
 
+function hasCompletePositions(index: Record<string, number[]>): boolean {
+  const seen = new Set<number>();
+  let last = -1;
+  for (const [word, positions] of Object.entries(index)) {
+    if (positions.length > 0 && word.trim() === "") return false;
+    for (const position of positions) {
+      if (seen.has(position)) return false;
+      seen.add(position);
+      last = Math.max(last, position);
+    }
+  }
+  // Every position from zero must have exactly one word. A gap could hide
+  // a negation, and a conflict could overwrite one, so neither is evidence.
+  return seen.size === last + 1;
+}
+
 /** Fetch a DOI's abstract or explain why source text must be pasted. */
 export async function fetchSourceByDoi(
   doi: string,
@@ -108,6 +124,12 @@ export async function fetchSourceByDoi(
     : null;
   if (index !== null && !isAbstractIndex(index)) {
     return unreadable;
+  }
+  if (index !== null && !hasCompletePositions(index)) {
+    return {
+      status: "unreachable",
+      reason: "OpenAlex sent an incomplete or conflicting abstract. Paste the source text instead.",
+    };
   }
   const text = index === null ? "" : rebuildAbstract(index);
   if (text === "") {

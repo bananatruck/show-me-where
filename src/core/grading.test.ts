@@ -176,6 +176,13 @@ describe("warningsFor", () => {
 });
 
 describe("judgeReply", () => {
+  it("keeps a grade backed by a sentence quoted in the source", () => {
+    const quote = '"Treatment improved survival in adults."';
+    expect(judgeReply(reply("supported", quote), quote, "Treatment improved survival in adults.")).toMatchObject({
+      grade: "supported", evidence: quote, discarded: null,
+    });
+  });
+
   it("keeps a grade whose quote is a whole sentence in the source, with its context", () => {
     const quote = "Memory scores rose by 8% after two weeks of extra sleep.";
     expect(judgeReply(reply("partly_supported", quote, "8%, not 18%."), SOURCE, "Scores rose 18%.")).toEqual({

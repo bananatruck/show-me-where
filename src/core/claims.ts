@@ -62,9 +62,29 @@ const ABBREVIATIONS = new Set([
   "dec",
 ]);
 
-// Citation markers that stay with the sentence before them: any bracket right
-// after the stop, or a numeric marker after a space, as in "It rose. [1]".
-const MARKER_RUN = /^(?:\[[^\]\n]*\]|\s+\[\d[\d,\s\u2013-]*\])*/;
+// Only numeric citation syntax can be omitted from evidence after a stop.
+// Bracketed prose may qualify the finding and must remain part of the sentence.
+const MARKER_INNER = String.raw`\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*`;
+const MARKER_RUN = new RegExp(String.raw`^(?:\s*\[${MARKER_INNER}\])*`);
+const MARKER_TAIL = new RegExp(String.raw`[.!?]["')\u201D\u2019]*(?:\s*\[${MARKER_INNER}\])*$`);
+// Bracketed prose after a stop, with or without a space before it, as in "It rose. [but only in mice]".
+const BRACKET_GROUP = /^\s*\[[^\]\n]*\][.!?]?["')\u201D\u2019]*/;
+
+/**
+ * The end of a bracketed qualification that starts at `from`, or null. Bracketed prose belongs to the
+ * sentence before it when nothing of its own sentence follows: the paragraph ends, or a new sentence
+ * starts. Then a quote of that sentence must include it. "[Table 1] shows the data." goes on after the
+ * bracket, so it opens the next sentence instead.
+ */
+function qualificationEnd(text: string, from: number, pEnd: number): number | null {
+  const group = BRACKET_GROUP.exec(text.slice(from, pEnd));
+  if (!group) return null;
+  const after = from + group[0].length;
+  const rest = text.slice(after, pEnd);
+  if (/^\s*$/.test(rest)) return after;
+  const next = /^\s+(\S+)/.exec(rest)?.[1];
+  return next !== undefined && startsASentence(next) ? after : null;
+}
 
 function isAbbreviation(textBeforeStop: string): boolean {
   const word = /([A-Za-z][A-Za-z.]*)$/.exec(textBeforeStop)?.[1];
@@ -128,7 +148,14 @@ export function sentenceSpans(text: string): SentenceSpan[] {
       if (ch === "." || ch === "!" || ch === "?") {
         let stop = i + 1;
         while (stop < pEnd && "\"')\u201D\u2019".includes(text[stop] ?? "")) stop += 1;
-        const end = stop + (MARKER_RUN.exec(text.slice(stop, pEnd))?.[0].length ?? 0);
+        let end = stop + (MARKER_RUN.exec(text.slice(stop, pEnd))?.[0].length ?? 0);
+        // A bracketed qualification is part of the sentence, so the sentence stops after it; numeric
+        // markers may still follow.
+        const qualified = qualificationEnd(text, end, pEnd);
+        if (qualified !== null) {
+          stop = qualified;
+          end = qualified + (MARKER_RUN.exec(text.slice(qualified, pEnd))?.[0].length ?? 0);
+        }
         const next = /^\s+(\S+)/.exec(text.slice(end, pEnd))?.[1];
         const boundary =
           next !== undefined &&
@@ -149,9 +176,7 @@ export function sentenceSpans(text: string): SentenceSpan[] {
     const last = trimmedSpan(text, start, pEnd, pEnd);
     if (last) {
       // A final sentence keeps its own stop when it ends in punctuation and markers.
-      const tail = /[.!?]["')\u201D\u2019]*(?:\[[^\]\n]*\]|\s+\[\d[\d,\s\u2013-]*\])*$/.exec(
-        text.slice(last.start, last.end),
-      );
+      const tail = MARKER_TAIL.exec(text.slice(last.start, last.end));
       if (tail) {
         const punct = /^[.!?]["')\u201D\u2019]*/.exec(tail[0])?.[0].length ?? 0;
         last.stop = last.start + tail.index + punct;
@@ -167,7 +192,7 @@ export function splitSentences(text: string): string[] {
   return sentenceSpans(text).map((span) => text.slice(span.start, span.end).replace(/\s+/g, " "));
 }
 
-const MARKER = /\s*\[(\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*)\]/g;
+const MARKER = new RegExp(String.raw`\s*\[(${MARKER_INNER})\]`, "g");
 const MAX_RANGE = 50;
 
 /** Expands "1, 3-5" into [1, 3, 4, 5], or null if any part is malformed. */
