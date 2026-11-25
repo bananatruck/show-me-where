@@ -36,9 +36,9 @@ Only free models, whose ids end in `:free`, are accepted.
 1. The text is split into body and reference list at a `References`, `Bibliography` or `Works Cited` heading.
 2. The citation style is read from the list: numbered (`[1]`, `[2, 3]`, `[2-4]`) or APA author-year (`(Smith & Jones, 2020)`, `(Lee et al., 2019a, p. 4; Smith, 2020)`, `Smith (2020) found`).
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
-4. When a sentence cites different sources in independent clauses ("A rose [1], while B fell [2]"), each source is checked against its own clause.
-   A shared opening such as "No evidence shows that", a later part without its own clause opener and subject, narrative citations, one citation group, parts under three words, or words after the final citation make every source use the whole sentence.
-   A later part shows its own subject only through a word such as "the", "it" or a number at its start, or one or two words followed by a verb such as "was" or "did"; continuations such as "but reduces mortality" or "while significantly reducing mortality" keep the whole sentence so the shared subject stays visible.
+4. When a sentence joins independent clauses with a semicolon and each later clause starts with "the", "a", "an", "this", "these", "those", "its", "their", "it", "they", "we", "he" or "she" ("A rose [1]; the B fell [2]"), each source is checked against its own clause.
+   Every other sentence is checked whole by every source, including "A rose [1], while B fell [2]", a shared opening such as "No evidence shows that" or "In adults,", a clause with a left-out verb phrase ("; the placebo did not"), narrative citations, one citation group, parts under three words, or words after the final citation.
+   This gives up precision on purpose: a word-level rule cannot tell "but often has" or "but most notably reduces" from a clause with its own subject, and a clause graded without its shared subject could show a wrong grade as supported.
    A source cited more than once uses the whole sentence; other sources can keep their scopes.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
    Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.

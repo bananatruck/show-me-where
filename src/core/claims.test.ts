@@ -127,13 +127,13 @@ describe("extractClaims", () => {
 
   it("scopes each citation to the part of the sentence it follows", () => {
     const { claims } = extractClaims(
-      "Memory scores rose sharply [1], while reaction times did not change at all [2].",
+      "Memory scores rose sharply [1]; the reaction times did not change at all [2].",
       "numeric",
       numericRefs([1, 2]),
     );
     expect(claims[0]?.scopes).toEqual({
       1: "Memory scores rose sharply",
-      2: "while reaction times did not change at all",
+      2: "the reaction times did not change at all",
     });
   });
 
@@ -161,37 +161,66 @@ describe("extractClaims", () => {
     expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
   });
 
-  // The splitting rule: a later part is split off only when, after its opener,
-  // its subject is shown by a determiner, pronoun, quantifier or number, or by
-  // one or two content words followed by a form of be, have or do, or a modal.
-  // Anything else, including a word that may be a noun or a verb, keeps the
-  // whole sentence for every source. null means the whole sentence.
+  // The splitting rule: a later part is split off only when it opens with a
+  // semicolon (optionally "however,") and then an article, demonstrative,
+  // possessive determiner or subject pronoun, and does not end in a left-out
+  // verb phrase. Everything else keeps the whole sentence for every source,
+  // including many clauses a reader would split. null means the whole sentence.
   it.each([
-    ["while reaction times did not change at all", "while reaction times did not change at all"],
-    ["while family history was associated with mortality", "while family history was associated with mortality"],
-    ["while the placebo group did not improve", "while the placebo group did not improve"],
-    ["but it did not reduce mortality in adults", "but it did not reduce mortality in adults"],
-    ["whereas 30% of patients relapsed within a year", "whereas 30% of patients relapsed within a year"],
-    ["; however, mortality did not change in adults", "however, mortality did not change in adults"],
-    ["while these effects were small in adults", "while these effects were small in adults"],
-    ["while family history predicts mortality", null],
-    ["but reduces mortality in older adults", null],
-    ["but fails to reduce mortality in adults", null],
-    ["but fell short in older adults", null],
-    ["but often fails in older adults", null],
-    ["but never reduces mortality in adults", null],
-    ["but reduces costs patients had", null],
-    ["while significantly reducing mortality in adults", null],
-    ["while also lowering mortality rates", null],
-    ["but not in older patients overall", null],
-    ["while overall hospital mortality rates did not change", null],
-  ] as const)("splits a later clause only when its own subject is shown: %j", (continuation, scope) => {
-    const sentence = `Drug X improves survival in adults [1], ${continuation} [2].`.replace(", ;", ";");
+    ["; the placebo group did not improve", "the placebo group did not improve"],
+    ["; it did not reduce mortality in adults", "it did not reduce mortality in adults"],
+    ["; however, the effect on mortality was small", "however, the effect on mortality was small"],
+    ["; these effects were small in adults", "these effects were small in adults"],
+    ["; their mortality rate fell by half", "their mortality rate fell by half"],
+    ["; the reaction times did not change at all", "the reaction times did not change at all"],
+    // A conjunction is not enough, even before an explicit subject.
+    [", while reaction times did not change at all", null],
+    [", while the placebo group did not improve", null],
+    [", but it did not reduce mortality in adults", null],
+    [", whereas 30% of patients relapsed within a year", null],
+    [", while family history was associated with mortality", null],
+    [", while family history predicts mortality", null],
+    // Subjectless continuations, including the reported adverb and quantifier cases.
+    [", but reduces mortality in older adults", null],
+    [", but fails to reduce mortality in adults", null],
+    [", but fell short in older adults", null],
+    [", but often fails in older adults", null],
+    [", but most notably reduces mortality in adults", null],
+    [", but often has adverse effects in adults", null],
+    [", but never reduces mortality in adults", null],
+    [", but reduces costs patients had", null],
+    [", while significantly reducing mortality in adults", null],
+    [", while also lowering mortality rates", null],
+    [", but not in older patients overall", null],
+    // After a semicolon: quantifiers used as adverbs, adverbs, elided subjects,
+    // open-class first words, fronted phrases and left-out verb phrases.
+    ["; most patients did not improve at all", null],
+    ["; most notably reduces mortality in adults", null],
+    ["; often has adverse effects in adults", null],
+    ["; reduces mortality in older adults", null],
+    ["; family history predicts mortality", null],
+    ["; however, mortality did not change in adults", null],
+    ["; in older adults the effect was small", null],
+    ["; that is, it reduces mortality", null],
+    ["; the placebo group did not", null],
+    ["; the placebo group did as well", null],
+    ["; they did too", null],
+  ] as const)("splits a later clause only on the stated signals: %j", (continuation, scope) => {
+    const sentence = `Drug X improves survival in adults [1]${continuation} [2].`;
     const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
     const text = claims[0]?.text ?? "";
     expect(claims[0]?.scopes).toEqual(
       scope === null ? { 1: text, 2: text } : { 1: "Drug X improves survival in adults", 2: scope },
     );
+  });
+
+  it.each([
+    "In adults, Drug X improves survival [1]; the placebo group did not improve [2].",
+    "Drug X did not improve survival [1]; the placebo group improved it [2].",
+  ])("keeps the whole sentence when the first part has a frame or fronted phrase: %j", (sentence) => {
+    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
+    const text = claims[0]?.text ?? "";
+    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
   });
 
   it("keeps the whole sentence for a verb-led continuation after a plural subject", () => {

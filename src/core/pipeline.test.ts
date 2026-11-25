@@ -61,7 +61,7 @@ describe("resolveSources", () => {
 describe("runCheck", () => {
   it("sends the scope of each citation and a fenced source to the model", async () => {
     const analysis = analyzeText(
-      "Memory scores rose sharply [1], while reaction times did not change at all [2].\nReferences\n[1] A.\n[2] B.",
+      "Memory scores rose sharply [1]; the reaction times did not change at all [2].\nReferences\n[1] A.\n[2] B.",
     );
     const users: string[] = [];
     const provider: ModelProvider = {
@@ -81,7 +81,7 @@ describe("runCheck", () => {
     );
     expect(users[0]).toMatch(/PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nMemory scores rose sharply\n/);
     expect(users[1]).toMatch(
-      /PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nwhile reaction times did not change at all\n/,
+      /PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nthe reaction times did not change at all\n/,
     );
     expect(users[1]).toMatch(/<source-[0-9a-f]{12}>\nSource two.\n<\/source-[0-9a-f]{12}>/);
   });
@@ -129,9 +129,9 @@ describe("runCheck", () => {
       3: { status: "ok", text: survival, origin: "pasted" },
     };
     for (const [sentence, headline] of [
-      ["Survival improved in adults [1], while mortality was lower in adults [2].", "not_every_source_backs_it"],
+      ["Survival improved in adults [1]; the mortality rate was lower in adults [2].", "not_every_source_backs_it"],
       ["Survival improved in adults [1, 2].", "sources_disagree"],
-      ["Survival improved in adults [1, 3], while mortality was lower in adults [2].", "sources_disagree"],
+      ["Survival improved in adults [1, 3]; the mortality rate was lower in adults [2].", "sources_disagree"],
     ]) {
       const analysis = analyzeText(`${sentence}\nReferences\n[1] First.\n[2] Second.\n[3] Third.`);
       const report = await runCheck(analysis, sources, createReplayProvider(replies));

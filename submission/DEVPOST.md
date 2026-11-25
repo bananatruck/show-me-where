@@ -27,9 +27,9 @@ The student ends up reading the right sentence of the right source, which is the
 2. The app lists every cited claim, every sentence with no citation, and every citation that matches nothing in the reference list (bracketed numbers above 999 are read as years).
 3. For each source with a DOI, it reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources can be pasted in.
 4. Each claim is checked against each of its sources.
-   When a sentence cites different sources in independent clauses, each source is checked against the part its citation follows.
-   The whole sentence is used for a shared opening frame such as "No evidence shows that" or "It is unlikely that", a later part without its own clause opener and subject, text after the final citation other than punctuation, narrative citations such as "Smith (2020) found", a single citation group, or any part shorter than three words.
-   A later part's subject counts as shown only when a word such as "the", "it" or a number starts it, or when one or two words are followed by a verb such as "was" or "did"; continuations such as "but reduces mortality" or "while significantly reducing mortality" keep the shared subject by using the whole sentence.
+   A sentence is split across its sources only when its clauses are joined by a semicolon and each later clause starts with a word such as "the", "this", "its" or "it" ("A rose [1]; the B fell [2]").
+   Every other sentence is checked whole by every source, including "A rose [1], while B fell [2]", a shared opening such as "No evidence shows that" or "In adults,", a left-out verb phrase such as "; the placebo did not", narrative citations such as "Smith (2020) found", a single citation group, text after the final citation, or any part shorter than three words.
+   That costs precision on purpose: a word-level rule cannot tell "but often has" from a clause with its own subject, and a clause graded without its subject could show a wrong grade as supported.
    A source cited more than once is checked against the whole sentence, while other sources can keep their own scopes.
 5. Results show the model's reading (supported, partly supported, not supported) or the app's own outcome (cannot tell, source not reachable, check failed, sources disagree), with the verified sentence highlighted in context.
 
