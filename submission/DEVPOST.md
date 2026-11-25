@@ -29,7 +29,7 @@ The student ends up reading the right sentence of the right source, which is the
 4. Each claim is checked against each of its sources.
    When a sentence cites different sources in independent clauses, each source is checked against the part its citation follows.
    The whole sentence is used for a shared opening frame such as "No evidence shows that" or "It is unlikely that", a later part without its own clause opener and subject, text after the final citation other than punctuation, narrative citations such as "Smith (2020) found", a single citation group, or any part shorter than three words.
-   Adverb-led participial continuations such as "while significantly reducing mortality" keep the shared subject by using the whole sentence.
+   A later part's subject counts as shown only when a word such as "the", "it" or a number starts it, or when one or two words are followed by a verb such as "was" or "did"; continuations such as "but reduces mortality" or "while significantly reducing mortality" keep the shared subject by using the whole sentence.
    A source cited more than once is checked against the whole sentence, while other sources can keep their own scopes.
 5. Results show the model's reading (supported, partly supported, not supported) or the app's own outcome (cannot tell, source not reachable, check failed, sources disagree), with the verified sentence highlighted in context.
 

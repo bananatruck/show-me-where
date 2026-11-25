@@ -82,7 +82,12 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
-The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however" and then with something that can be a subject (not an "-ing" or "-ed" word, a preposition, an adverb, or "not"), the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
+The rule is to split only when every part is shown to be a clause of its own, and otherwise to give every source the whole sentence.
+Checking a source against more text can only lower its grade, while a part that lost its subject or frame could raise it.
+Each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however", and then show a subject of its own.
+A subject is shown only by closed-class words: a determiner, pronoun, quantifier or number first ("while the placebo group", "but it"), or one or two words followed by a form of "be", "have" or "do" or a modal ("while reaction times did", "while family history was").
+A word such as "reduces" or "increase" can be a verb that leans on the first part's subject or a noun, so "but reduces mortality" and "while family history predicts mortality" keep the whole sentence.
+The opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
 Narrative citations, a single citation group, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
 A reference cited twice is checked against the whole sentence, while other sources can keep their scopes.
 The model always sees the whole sentence for context and the part it is asked to grade.

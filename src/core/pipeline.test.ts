@@ -129,9 +129,9 @@ describe("runCheck", () => {
       3: { status: "ok", text: survival, origin: "pasted" },
     };
     for (const [sentence, headline] of [
-      ["Survival improved in adults [1], while mortality fell in adults [2].", "not_every_source_backs_it"],
+      ["Survival improved in adults [1], while mortality was lower in adults [2].", "not_every_source_backs_it"],
       ["Survival improved in adults [1, 2].", "sources_disagree"],
-      ["Survival improved in adults [1, 3], while mortality fell in adults [2].", "sources_disagree"],
+      ["Survival improved in adults [1, 3], while mortality was lower in adults [2].", "sources_disagree"],
     ]) {
       const analysis = analyzeText(`${sentence}\nReferences\n[1] First.\n[2] Second.\n[3] Third.`);
       const report = await runCheck(analysis, sources, createReplayProvider(replies));

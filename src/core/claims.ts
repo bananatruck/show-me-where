@@ -241,37 +241,57 @@ const MIN_SCOPE_WORDS = 3;
 const SHARED_FRAME =
   /\b(?:no|not|never|none|neither|nor|without|cannot|unlikely|unclear|whether|if|that|may|might|could)\b|n't\b/i;
 
-/** Words that cannot begin a subject: adverbs, prepositions and negations. */
-const NOT_A_SUBJECT = new Set(
-  "not no also only still then thus so in on at for with to by from of as being having more less even yet instead rather especially mainly mostly particularly notably very quite too well".split(
-    " ",
-  ),
+/** Closed-class words that can only begin a noun phrase, never a verb phrase. */
+const SUBJECT_START = new Set(
+  "the a an this these those its their his her our my your it they we he she there each both all some most many several few another such".split(" "),
+);
+
+/** Forms of be, have and do, and modals: a closed class of finite verbs. */
+const AUXILIARY = new Set(
+  "is are was were be been has have had do does did can could will would may might shall should must".split(" "),
+);
+
+/** Closed-class words that cannot be part of a bare subject before its verb. */
+const FUNCTION_WORD = new Set(
+  "not no never also only still then thus so in on at for with to by from of as than that which who whom whose when where if whether and or nor but yet even very too more less".split(" "),
 );
 
 /**
- * Whether a later part, after its opener, starts with something that can be
- * a subject: "while reaction times did not change" does, but "while reducing
- * mortality" and "but not in older patients" lean on the first part's subject.
- * Adverb-led parts keep the whole sentence too, so "significantly reducing"
- * cannot lose the subject it shares with the opening clause.
+ * Whether a later part, after its opener, shows a subject of its own. Open
+ * class words cannot be told apart: "reduces" or "increase" may be a verb
+ * that leans on the first part's subject, or a noun. So a subject is shown
+ * only by closed-class evidence: a determiner, pronoun, quantifier or number
+ * first ("while the placebo group", "but it", "whereas 30% of"), or one or two
+ * content words followed by an auxiliary ("while reaction times did",
+ * "while family history was"). Anything else is in doubt and keeps the whole
+ * sentence, which can only lower a grade, never raise one.
  */
 function opensWithSubject(part: string): boolean {
-  const rest = part.replace(CLAUSE_OPENER, "");
-  const first = /[\p{L}\p{N}]+/u.exec(rest)?.[0]?.toLowerCase();
-  if (!first) return false;
-  return !NOT_A_SUBJECT.has(first) && !/(?:ing|ed|ly)$/.test(first);
+  const words = (part.replace(CLAUSE_OPENER, "").match(/[\p{L}\p{N}%]+/gu) ?? []).map((w) => w.toLowerCase());
+  const [first] = words;
+  if (first === undefined) return false;
+  if (SUBJECT_START.has(first) || /^\p{N}/u.test(first)) return true;
+  const verb = words.slice(0, 3).findIndex((w) => AUXILIARY.has(w));
+  return verb >= 1 && words.slice(0, verb).every((w) => !FUNCTION_WORD.has(w) && !SUBJECT_START.has(w));
 }
 
 /** How a later part of a sentence must open to stand as its own clause. */
 const CLAUSE_OPENER = /^\s*(?:;|,?\s*(?:while|whereas|but|although|though|however)\b)/i;
 
 /**
- * The part of the sentence each citation is attached to. A sentence is split
- * only when it is safe: every citation is parenthetical, there are at least
- * two, nothing but punctuation follows the last one (so no shared predicate
- * is cut off, as in "Studies [1] and trials [2] proved X"), and every part has
- * at least three words. Otherwise every source is checked against the whole
- * sentence. A reference cited twice is always checked against the whole.
+ * The part of the sentence each citation is attached to. The rule: split only
+ * when every part is shown to be a clause of its own, otherwise every source
+ * gets the whole sentence. Checking a source against more text can only lower
+ * its grade, while a part that lost its subject or frame could raise it. A
+ * sentence is split only when all of these hold:
+ * - there are at least two citations, all parenthetical;
+ * - nothing but punctuation follows the last one (so no shared predicate is
+ *   cut off, as in "Studies [1] and trials [2] proved X");
+ * - the first part has no frame word ("No evidence shows that", "unlikely");
+ * - every later part opens with ";" or while, whereas, but, although, though
+ *   or however, and then shows its own subject (see opensWithSubject);
+ * - every part has at least three words.
+ * A reference cited twice is always checked against the whole sentence.
  */
 function scopesFor(sentence: string, citations: readonly Citation[], text: string): Record<number, string> {
   const whole: Record<number, string> = {};
