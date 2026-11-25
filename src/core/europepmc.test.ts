@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
+import { judgeReply } from "./grading";
 import { checkEvidence } from "./evidence";
 import type { FetchLike } from "./types";
 import {
@@ -61,6 +62,32 @@ describe("europepmc", () => {
     const xml =
       '<article><body><p>Sleep latency fell by 15 minutes.<xref ref-type="bibr" rid="B1">1</xref> Total sleep time also rose.</p></body></article>';
     expect(extractJatsText(xml)).toBe("Sleep latency fell by 15 minutes. [1] Total sleep time also rose.");
+  });
+
+  it("preserves scientific superscripts and subscripts before checking evidence", () => {
+    const xml = "<article><body><p>The concentration was 10<sup><italic>6</italic></sup> cells/mL.</p>" +
+      "<p>The solution contained H<sub>2</sub>O and measured m<sup>2</sup>.</p></body></article>";
+    const text = extractJatsText(xml);
+    const quote = "The concentration was 10^(6) cells/mL.";
+    expect(text).toBe(`${quote}\n\nThe solution contained H_(2)O and measured m^(2).`);
+    expect(checkEvidence(quote, text)).toMatchObject({ ok: true });
+    expect(checkEvidence("The concentration was 106 cells/mL.", text)).toEqual({ ok: false, reason: "not_found" });
+    expect(judgeReply(JSON.stringify({
+      grade: "supported", evidence: "The concentration was 106 cells/mL.", reason: "Same concentration.",
+    }), text, "The concentration was 106 cells/mL.")).toMatchObject({ grade: "cannot_tell" });
+  });
+
+  it("keeps superscript bibliography references as spaced citation markers", () => {
+    for (const [citation, marker] of [
+      ['<sup><xref ref-type="bibr">1</xref></sup>', "[1]"],
+      ['<xref ref-type="bibr"><sup>1</sup></xref>', "[1]"],
+      ['<sup><xref ref-type="bibr">1</xref>, <xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+    ]) {
+      const text = extractJatsText(`<article><body><p>Treatment improved survival in adults.${citation} Mortality also fell.</p></body></article>`);
+      expect(text).not.toContain("^(");
+      expect(text).toBe(`Treatment improved survival in adults. ${marker} Mortality also fell.`);
+      expect(checkEvidence("Treatment improved survival in adults.", text)).toMatchObject({ ok: true });
+    }
   });
 
   it("extractJatsText reads a paragraph nested in a list once", () => {

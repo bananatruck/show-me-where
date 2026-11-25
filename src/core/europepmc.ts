@@ -44,6 +44,22 @@ export function extractJatsText(
         const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
         if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
       });
+      // Flattening script markup would turn 10 to the sixth into 106.
+      // Use explicit notation, except for raised bibliography markers.
+      for (const script of [...copy.querySelectorAll("sup, sub")].reverse()) {
+        if (script.closest('xref[ref-type="bibr"]')) continue;
+        const citations = [...script.querySelectorAll('xref[ref-type="bibr"]')];
+        const remainder = document.createElement("span");
+        remainder.append(script.cloneNode(true));
+        remainder.querySelectorAll('xref[ref-type="bibr"]').forEach((xref) => xref.remove());
+        if (citations.length > 0 && /^[\s,;[\]\u2013-]*$/.test(remainder.textContent ?? "")) {
+          const labels = citations.map((xref) => (xref.textContent ?? "").trim().replace(/^\[|\]$/g, ""));
+          script.replaceWith(` [${labels.join(", ")}]`);
+        } else {
+          const marker = script.localName === "sup" ? "^" : "_";
+          script.replaceWith(`${marker}(${(script.textContent ?? "").trim()})`);
+        }
+      }
       // A nested block (a list, a paragraph in a paragraph) is a paragraph of
       // its own: mark both sides, then split there, so the boundary survives
       // the whitespace clean-up below.

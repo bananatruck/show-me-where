@@ -98,6 +98,8 @@ A browser can only read a response from another site when that site sends CORS h
 On 2026-11-24 these endpoints answered a request carrying an `Origin` header with `access-control-allow-origin: *`: `api.openalex.org`, `api.crossref.org`, the Europe PMC REST API at `www.ebi.ac.uk/europepmc/webservices/rest`, and `openrouter.ai/api/v1`, whose preflight also allows the `Authorization` header.
 `export.arxiv.org` answered without that header, so arXiv cannot be read directly from the browser.
 For a reference with a DOI, the app first asks Europe PMC for an open-access copy and reads the abstract and body paragraphs of its JATS full text, leaving out references, tables, figures, and back matter.
+Scientific superscripts and subscripts are written explicitly, such as `10^(6)` and `H_(2)O`, before text extraction so they cannot become different numbers or formulas.
+Raised bibliography references stay citation markers such as `[1]`.
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
