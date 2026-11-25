@@ -28,6 +28,7 @@ export function matchKey(name: string): string {
   return name
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
+    .replace(/[\u2018\u2019]/g, "'")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/\.$/, "")
@@ -128,11 +129,11 @@ function readPart(part: string): { group: CitedGroup; years: string[] } | null {
 
 const PARENTHETICAL = /\s*\(([^()]+)\)/g;
 // A name word: optional lowercase particles, then a capitalised word.
-const NAME_WORD = String.raw`(?:${PARTICLE}\s+)*\p{Lu}[\p{L}'\-]+`;
+const NAME_WORD = String.raw`(?:${PARTICLE}\s+)*\p{Lu}[\p{L}\p{M}'\u2018\u2019\-]+`;
 // Up to six name words, so group names such as "World Health Organization" fit.
 const NAME_RUN = String.raw`${NAME_WORD}(?:\s+${NAME_WORD}){0,5}`;
 const NARRATIVE = new RegExp(
-  String.raw`(${NAME_RUN}(?:\s+(?:&|and)\s+${NAME_RUN}|\s+et al\.)?)\s+\((${YEAR})(?:,\s*pp?\.\s*[^)]+)?\)`,
+  String.raw`(?<![\p{L}\p{M}\p{N}'\u2018\u2019\-])(${NAME_RUN}(?:\s+(?:&|and)\s+${NAME_RUN}|\s+et al\.)?)\s+\((${YEAR})(?:,\s*pp?\.\s*[^)]+)?\)`,
   "gu",
 );
 const NAME_WORD_START = new RegExp(NAME_WORD, "gu");
