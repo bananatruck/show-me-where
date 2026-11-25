@@ -82,6 +82,11 @@ describe("europepmc", () => {
       ['<sup><xref ref-type="bibr">1</xref></sup>', "[1]"],
       ['<xref ref-type="bibr"><sup>1</sup></xref>', "[1]"],
       ['<sup><xref ref-type="bibr">1</xref>, <xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+      ['<sup><xref ref-type="bibr">1</xref>–<xref ref-type="bibr">3</xref></sup>', "[1–3]"],
+      ['<sup><xref ref-type="bibr">1</xref>-<xref ref-type="bibr">3</xref></sup>', "[1-3]"],
+      ['<sup><xref ref-type="bibr">1</xref>, <xref ref-type="bibr">4</xref>–<xref ref-type="bibr">6</xref></sup>', "[1, 4–6]"],
+      ['<sup><xref ref-type="bibr">1</xref>; <xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
+      ['<sup><xref ref-type="bibr">1</xref><xref ref-type="bibr">2</xref></sup>', "[1, 2]"],
     ]) {
       const text = extractJatsText(`<article><body><p>Treatment improved survival in adults.${citation} Mortality also fell.</p></body></article>`);
       expect(text).not.toContain("^(");

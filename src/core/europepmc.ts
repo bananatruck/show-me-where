@@ -54,8 +54,20 @@ export function extractJatsText(
         remainder.append(script.cloneNode(true));
         remainder.querySelectorAll('xref[ref-type="bibr"]').forEach((xref) => xref.remove());
         if (citations.length > 0 && /^[\s,;[\]\u2013-]*$/.test(remainder.textContent ?? "")) {
-          const labels = citations.map((xref) => (xref.textContent ?? "").trim().replace(/^\[|\]$/g, ""));
-          script.replaceWith(` [${labels.join(", ")}]`);
+          // Keep the separator between each pair of references: "1\u20133" is a
+          // range that includes 2, not the list "1, 3". Commas, semicolons and
+          // adjacent references are a list.
+          const UNIT = "\u0001";
+          for (const xref of citations) {
+            xref.textContent = UNIT + (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "") + UNIT;
+          }
+          const parts = (script.textContent ?? "").split(UNIT);
+          let inner = parts[1] ?? "";
+          for (let i = 3; i < parts.length; i += 2) {
+            const between = (parts[i - 1] ?? "").replace(/[\s[\]]/g, "");
+            inner += (/^[\u2013-]$/.test(between) ? between : ", ") + (parts[i] ?? "");
+          }
+          script.replaceWith(` [${inner}]`);
         } else {
           const marker = script.localName === "sup" ? "^" : "_";
           script.replaceWith(`${marker}(${(script.textContent ?? "").trim()})`);
