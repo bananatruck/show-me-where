@@ -38,6 +38,9 @@ Only free models, whose ids end in `:free`, are accepted.
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
 4. When a sentence cites different sources in independent clauses ("A rose [1], while B fell [2]"), each source is checked against its own clause. Anything else, including a shared opening such as "No evidence shows that", narrative citations, and parts under three words, is checked against the whole sentence.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
+   Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.
+   Full text is limited to 120,000 characters at a paragraph boundary, or a complete sentence boundary if the first paragraph is too long.
+   If no complete sentence fits, the app tries the abstract.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
 7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.

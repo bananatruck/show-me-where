@@ -101,6 +101,8 @@ For a reference with a DOI, the app first asks Europe PMC for an open-access cop
 Scientific superscripts and subscripts are written explicitly, such as `10^(6)` and `H_(2)O`, before text extraction so they cannot become different numbers or formulas.
 Raised bibliography references stay citation markers such as `[1]`.
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
+If the first paragraph exceeds the limit, only complete sentences that fit are retained.
+If no sentence fits, full text is unavailable and the app tries the abstract.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
 When a check is superseded (the document or pasted source text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.

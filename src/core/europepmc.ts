@@ -1,3 +1,4 @@
+import { sentenceSpans } from "./claims";
 import type { FetchLike, SourceText } from "./types";
 
 /** Build the Europe PMC search URL for a quoted DOI. */
@@ -143,9 +144,17 @@ export async function fetchFullTextByDoi(
   if (text === "") return unreadableText;
   if (text.length > MAX_FULL_TEXT_CHARS) {
     const boundary = text.lastIndexOf("\n\n", MAX_FULL_TEXT_CHARS - 1);
+    // Split the original text, never a cut prefix whose last fragment would
+    // look like a whole sentence after losing its trailing qualification.
+    const end = boundary === -1
+      ? sentenceSpans(text).filter((span) => span.end <= MAX_FULL_TEXT_CHARS).at(-1)?.end
+      : boundary;
+    if (end === undefined || end === 0) {
+      return { status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit." };
+    }
     return {
       status: "ok",
-      text: text.slice(0, boundary === -1 ? MAX_FULL_TEXT_CHARS : boundary),
+      text: text.slice(0, end),
       origin: "europepmc",
       truncated: true,
     };

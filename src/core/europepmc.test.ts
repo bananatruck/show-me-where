@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { judgeReply } from "./grading";
 import { checkEvidence } from "./evidence";
-import type { FetchLike } from "./types";
+import type { FetchLike, SourceText } from "./types";
 import {
   europePmcSearchUrl,
   europePmcFullTextUrl,
@@ -192,19 +192,43 @@ describe("europepmc", () => {
     }
   });
 
+  it("retains only complete sentences when the first paragraph exceeds the limit", async () => {
+    const complete = "Treatment improved survival in adults.";
+    const incomplete = "Survival improved " + "substantially ".repeat(10000) + ", but only in the exploratory subgroup.";
+    const fetchImpl = vi.fn<FetchLike>()
+      .mockResolvedValueOnce(searchReply())
+      .mockResolvedValueOnce(new Response(`<article><body><p>${complete} ${incomplete}</p></body></article>`));
+    const source = await fetchFullTextByDoi("10.1234/long", fetchImpl);
+    expect(source).toEqual({ status: "ok", text: complete, origin: "europepmc", truncated: true });
+    if (source.status === "ok") {
+      expect(checkEvidence(complete, source.text)).toMatchObject({ ok: true });
+      expect(checkEvidence(incomplete.slice(0, 100), source.text).ok).toBe(false);
+    }
+  });
+
+  it("reports full text unavailable when no complete sentence fits within the limit", async () => {
+    for (const paragraph of ["a".repeat(MAX_FULL_TEXT_CHARS + 1),
+      "Treatment improved survival " + "substantially ".repeat(10000) + ", but not in the final analysis."]) {
+      const fetchImpl = vi.fn<FetchLike>()
+        .mockResolvedValueOnce(searchReply())
+        .mockResolvedValueOnce(new Response(`<article><body><p>${paragraph}</p></body></article>`));
+      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual({
+        status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit.",
+      });
+    }
+  });
+
   it("fetchFullTextByDoi truncates very long text at a paragraph boundary", async () => {
     expect(MAX_FULL_TEXT_CHARS).toBe(120000);
-    for (const [paragraphs, text, truncated] of [
-      [["a".repeat(70000), "b".repeat(60000)], "a".repeat(70000), true],
-      [["a".repeat(120001)], "a".repeat(120000), true],
-      [["a".repeat(120000)], "a".repeat(120000), false],
-    ] satisfies [string[], string, boolean][]) {
+    for (const [paragraphs, expected] of [
+      [["a".repeat(70000), "b".repeat(60000)], { status: "ok", text: "a".repeat(70000), origin: "europepmc", truncated: true }],
+      [["a".repeat(120001)], { status: "unreachable", reason: "Europe PMC full text has no complete sentence within the length limit." }],
+      [["a".repeat(120000)], { status: "ok", text: "a".repeat(120000), origin: "europepmc" }],
+    ] satisfies [string[], SourceText][]) {
       const fetchImpl = vi.fn<FetchLike>()
         .mockResolvedValueOnce(searchReply())
         .mockResolvedValueOnce(new Response(`<article><body>${paragraphs.map((p) => `<p>${p}</p>`).join("")}</body></article>`));
-      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual({
-        status: "ok", text, origin: "europepmc", ...(truncated ? { truncated: true } : {}),
-      });
+      expect(await fetchFullTextByDoi("10.1234/long", fetchImpl)).toEqual(expected);
     }
   });
 });
