@@ -3,7 +3,7 @@ import { fetchFullTextByDoi } from "./core/europepmc";
 import { analyzeText, resolveSources, runCheck, type Analysis, type CheckReport } from "./core/pipeline";
 import { ProviderError, createOpenRouterProvider, createReplayProvider } from "./core/provider";
 import { fetchSourceByDoi, lookupDoi } from "./core/sources";
-import { withTimeout } from "./core/timeout";
+import { withSignal, withTimeout } from "./core/timeout";
 import type { FetchLike, SourceText } from "./core/types";
 import { SAMPLE_RUN } from "./fixtures/sample";
 import { forgetStoredKeys } from "./keyStore";
@@ -132,7 +132,8 @@ export function App() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const runFetch: FetchLike = (input, init) => browserFetch(input, { ...init, signal: controller.signal });
+    // Cancelled when this check is superseded; the timeouts added below still apply.
+    const runFetch = withSignal(browserFetch, controller.signal);
     setError(null);
     setReport(null);
     setBusy(true);
