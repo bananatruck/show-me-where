@@ -84,11 +84,13 @@ A sentence that cites several sources becomes one claim with several sources, an
 Every source is graded against the whole sentence, even when its citation sits after only one part, as in "Scores rose sharply [1], while reaction times did not change [2]".
 A sentence is never cut into a part for each source: a later part can lean on the rest of the sentence for its subject, verb or frame ("but often has adverse effects", "; the placebo, only in younger adults", "; the placebo did so", "; the drug was well tolerated"), and no word-level rule tells those apart from clauses that stand alone.
 A part graded without what it leans on could show a wrong grade as supported, while grading the whole sentence can only lower a grade.
-The cost is precision: a source cited for one half of a sentence answers for all of it, so it usually reads "partly supported", and the headline for the sentence is "Not every cited source backs it" rather than a backing grade.
-A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
+The cost is precision: a source cited for one half of a sentence answers for all of it, so it usually reads "partly supported".
+Both `supported` and `partly_supported` count as backing grades.
+If every cited source has a backing grade, the headline is `partly_supported` when any source has that grade, otherwise `supported`.
 Each source's own grade is shown beside it whenever the headline does not already say it.
-When one source backs the whole sentence ("supported") and another contradicts it, the headline is "Sources disagree".
-A source that backs only part of the sentence next to one that contradicts it gives "Not every cited source backs it", since each may cover a different part, as does a source that could not be read, checked, or found to address the claim.
+If some sources back the sentence and others do not, the headline is "Not every cited source backs it".
+The exception is a `supported` source paired with a `not_supported` source, which gives "Sources disagree".
+In particular, a source that backs only part of the sentence next to one that contradicts it gives "Not every cited source backs it", since each may cover a different part.
 When no source backs the claim, the headline is the best evidenced of the rest.
 A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
 So a contradicting or unchecked source is never hidden behind a supporting one.

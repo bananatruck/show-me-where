@@ -38,7 +38,7 @@ Only free models, whose ids end in `:free`, are accepted.
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
 4. Every cited source is checked against the whole sentence, even in "A rose [1], while B fell [2]".
    The app does not cut a sentence into parts for each source, because a part can lean on the rest of the sentence ("; the placebo, only in younger adults", "but often has adverse effects"), and a part graded without that could show a wrong grade as supported.
-   The cost: a source cited for half a sentence usually reads "partly supported", and the sentence reads "Not every cited source backs it".
+   The cost is precision: a source cited for half a sentence usually reads "partly supported" because it answers for the whole sentence.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
    Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.
    Full text is limited to 120,000 characters at a paragraph boundary, or a complete sentence boundary if the first paragraph is too long.
@@ -46,8 +46,10 @@ Only free models, whose ids end in `:free`, are accepted.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
 7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim when the claim has extractable key words. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
-9. A claim shows a backing grade only if every cited source backs it. If one source backs the whole sentence and another contradicts it, it reads "Sources disagree".
-   A source that backs only part of it next to one that contradicts it, or a source that could not be read or checked, gives "Not every cited source backs it".
+9. Both `supported` and `partly_supported` count as backing grades.
+   If every cited source has a backing grade, the headline is `partly_supported` when any source has that grade, otherwise `supported`.
+   If some sources back the sentence and others do not, it reads "Not every cited source backs it".
+   The exception is a `supported` source paired with a `not_supported` source, which gives "Sources disagree".
 
 ## What it does not do
 
