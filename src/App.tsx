@@ -170,11 +170,14 @@ export function App() {
       setProgress("Fetching source text.");
       const resolved = await resolveSources(current, pasted, (doi) =>
         lookupDoi(doi, {
-          fullText: (d) => {
+          fullText: async (d) => {
+            if (controller.signal.aborted) return { status: "unreachable", reason: "The check was cancelled." };
             called.add("Europe PMC (full-text lookup by DOI)");
             return fetchFullTextByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },
-          abstract: (d) => {
+          abstract: async (d) => {
+            // A cancelled check does not move on to the next source.
+            if (controller.signal.aborted) return { status: "unreachable", reason: "The check was cancelled." };
             called.add("OpenAlex (abstract lookup by DOI)");
             return fetchSourceByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },

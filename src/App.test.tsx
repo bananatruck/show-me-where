@@ -273,4 +273,22 @@ describe("App", () => {
     expect(signals[0]?.aborted).toBe(true);
     expect(window.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("does not start the abstract fallback for a source lookup that was cancelled", async () => {
+    vi.spyOn(window, "fetch").mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    render(<App />);
+    goLive("First claim holds here [1].\nReferences\n[1] A paper. doi:10.1000/xyz");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+  });
 });
