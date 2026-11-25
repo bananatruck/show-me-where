@@ -83,7 +83,8 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
 The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however" and then with something that can be a subject (not an "-ing" or "-ed" word, a preposition, an adverb, or "not"), the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
-Narrative citations, a single citation group, a reference cited twice, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
+Narrative citations, a single citation group, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
+A reference cited twice is checked against the whole sentence, while other sources can keep their scopes.
 The model always sees the whole sentence for context and the part it is asked to grade.
 A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
 Each source's own grade is shown beside it whenever the headline does not already say it.
