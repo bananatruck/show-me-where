@@ -104,4 +104,4 @@ The live-mode error screens used a placeholder key that is not a real key.
 
 ## How it was built
 
-Kesh directed AI coding agents, which wrote the specification, the code, and the tests.
+The project was built by AI coding agents directed by Kesh and reviewed by independent automated reviewers.

@@ -68,7 +68,7 @@ A sample run, labelled on screen as a synthetic hand-written example, shows ever
 - TypeScript, React and Vite, built as a static site; Vitest and Testing Library for tests; ESLint and type-checking in GitHub Actions on every push.
 - Europe PMC REST API and OpenAlex API for source text; OpenRouter chat completions API for the model.
 - The highlighter stroke is adapted from Magic UI's MIT-licensed Highlighter component and draws with rough-notation (MIT). Fonts are Atkinson Hyperlegible and Source Serif 4 (SIL OFL), bundled.
-- The project was built by AI coding agents directed by Kesh.
+- The project was built by AI coding agents directed by Kesh and reviewed by independent automated reviewers.
 
 ## Built with
 
