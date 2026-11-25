@@ -1,0 +1,5 @@
+{
+  "note": "Real reply from POST https://openrouter.ai/api/v1/chat/completions with no Authorization header, recorded 2026-11-24. Only the status and body are kept.",
+  "status": 401,
+  "body": { "error": { "message": "No cookie auth credentials found", "code": 401 } }
+}

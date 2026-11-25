@@ -1,0 +1,511 @@
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+@import "@fontsource/source-serif-4/400.css";
+@import "@fontsource/source-serif-4/400-italic.css";
+@import "@fontsource/source-serif-4/600.css";
+
+/* Light theme: cool index-card paper, ballpoint ink, one highlighter yellow. */
+:root {
+  color-scheme: light;
+  --paper: #eef2f5;
+  --surface: #ffffff;
+  --ink: #1b2333;
+  --ink-soft: #4a566b;
+  --rule: #c9d3de;
+  /* Borders of inputs, toggles and chips: at least 3:1 against surface and paper. */
+  --control-border: #7b879a;
+  --highlight: #ffe45c;
+  --highlight-ink: #1b2333;
+  --focus: #2457c5;
+  --supported: #1f7a4d;
+  --partly: #9a5a00;
+  --against: #b3261e;
+  --unsure: #5b6577;
+  --disagree: #6e3fb0;
+  --sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --serif: "Source Serif 4", Georgia, serif;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.5625rem;
+  --step-3: 2.441rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #10161f;
+  --surface: #18202c;
+  --ink: #e6ebf2;
+  --ink-soft: #a9b4c4;
+  --rule: #2c3747;
+  --control-border: #6b7a90;
+  --highlight: #7a6512;
+  --highlight-ink: #fff8d6;
+  --focus: #8ab4ff;
+  --supported: #5cc48b;
+  --partly: #e0a24a;
+  --against: #f2766d;
+  --unsure: #a3aec0;
+  --disagree: #b48cf0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--step-0);
+  line-height: 1.55;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Long DOIs and links wrap instead of pushing the page sideways on a phone. */
+.step,
+.footer-panel {
+  overflow-wrap: anywhere;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+  z-index: 10;
+}
+
+.page {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.masthead h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: var(--step-3);
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* The product name carries the one highlighter stroke outside the results. */
+.masthead h1 .where {
+  background: linear-gradient(transparent 58%, var(--highlight) 58%, var(--highlight) 92%, transparent 92%);
+  padding: 0 0.1em;
+}
+
+.masthead p {
+  margin: 0.5rem 0 0;
+  max-width: 40rem;
+  color: var(--ink-soft);
+  font-size: var(--step-1);
+}
+
+.theme-toggle,
+.button,
+.segmented label {
+  font: inherit;
+  cursor: pointer;
+}
+
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--control-border);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+}
+
+.step {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.step > h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: var(--step-2);
+  margin: 0 0 1rem;
+}
+
+.step-number {
+  font-family: var(--serif);
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.reading {
+  max-width: 44rem;
+}
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  padding: 0.2rem;
+  margin: 0 0 1rem;
+}
+
+.segmented legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.segmented .seg {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The radio sits exactly over its label, so touch exploration finds it there. */
+.segmented input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented label {
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+}
+
+.segmented input:checked + label {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.segmented input:focus-visible + label {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.note {
+  border-left: 4px solid var(--highlight);
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.quiet {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.field {
+  display: block;
+  margin: 0 0 1rem;
+}
+
+.field > span {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 0.55rem 0.7rem;
+}
+
+.field textarea.document {
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  min-height: 16rem;
+  resize: vertical;
+}
+
+.field textarea[readonly] {
+  background: var(--paper);
+}
+
+.key-row {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .key-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.button {
+  background: var(--ink);
+  color: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 700;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.message {
+  border: 1px solid var(--against);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0 0;
+}
+
+.message strong {
+  color: var(--against);
+}
+
+.claims {
+  padding-left: 1.5rem;
+  margin: 0 0 1.5rem;
+}
+
+.claims li {
+  font-family: var(--serif);
+  margin-bottom: 0.5rem;
+}
+
+.chip {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  padding: 0 0.6rem;
+  margin-left: 0.4rem;
+  color: var(--ink-soft);
+}
+
+.sources {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+}
+
+.sources > li {
+  border-top: 1px solid var(--rule);
+  padding: 0.9rem 0;
+}
+
+.sources .raw {
+  font-family: var(--serif);
+}
+
+h3 {
+  font-size: var(--step-1);
+  margin: 1.5rem 0 0.5rem;
+}
+
+/* Results: the student's claim on the left, the source passage on the right. */
+.results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.result {
+  border-top: 1px solid var(--rule);
+  padding: 1.25rem 0;
+}
+
+.result-head {
+  display: grid;
+  gap: 0.25rem 1rem;
+}
+
+.verdict {
+  font-weight: 700;
+}
+
+.verdict[data-grade="supported"] { color: var(--supported); }
+.verdict[data-grade="partly_supported"] { color: var(--partly); }
+.verdict[data-grade="not_supported"] { color: var(--against); }
+.verdict[data-grade="sources_disagree"],
+.verdict[data-grade="not_every_source_backs_it"] { color: var(--disagree); }
+.verdict[data-grade="cannot_tell"],
+.verdict[data-grade="check_failed"],
+.verdict[data-grade="source_not_reachable"] { color: var(--unsure); }
+
+.claim-text {
+  font-family: var(--serif);
+  font-size: var(--step-1);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.per-source {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.source-check {
+  display: grid;
+  gap: 0.5rem 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .result-head,
+  .source-check {
+    grid-template-columns: 11rem 1fr;
+  }
+  .source-check > .passage,
+  .source-check > .reading-note {
+    grid-column: 2;
+  }
+}
+
+.source-label {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.passage {
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 44rem;
+}
+
+.passage .context {
+  color: var(--ink-soft);
+}
+
+.quote {
+  background: transparent;
+  color: inherit;
+  position: relative;
+}
+
+/* Without the drawn stroke, a plain highlight still marks the quote. */
+.quote:not(.quote--drawn) {
+  background: var(--highlight);
+  color: var(--highlight-ink);
+}
+
+.quote--drawn {
+  color: inherit;
+}
+
+:root[data-theme="dark"] .quote--drawn {
+  color: var(--highlight-ink);
+}
+
+.reading-note {
+  margin: 0;
+  max-width: 44rem;
+}
+
+.reading-note .model-reason {
+  font-style: italic;
+}
+
+.warnings {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--partly);
+}
+
+.discarded s {
+  color: var(--against);
+}
+
+.footer-panel {
+  border-top: 1px solid var(--rule);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.footer-panel dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.footer-panel dt {
+  font-weight: 700;
+}
+
+.footer-panel dd {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .footer-panel dl {
+    grid-template-columns: 1fr;
+  }
+  .step {
+    padding: 1rem;
+  }
+}
+
+.site-footer {
+  margin-top: 2rem;
+}
+
+.site-footer a {
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
