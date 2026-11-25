@@ -38,7 +38,7 @@ Only free models, whose ids end in `:free`, are accepted.
 3. Each sentence with a citation becomes a claim. Sentences without one are listed as not checked. Citations that match nothing in the list are named (bracketed numbers above 999 are read as years, not references).
 4. When a sentence cites different sources in independent clauses ("A rose [1], while B fell [2]"), each source is checked against its own clause.
    A shared opening such as "No evidence shows that", a later part without its own clause opener and subject, narrative citations, one citation group, parts under three words, or words after the final citation make every source use the whole sentence.
-   Continuations such as "while significantly reducing mortality" keep the whole sentence so the shared subject stays visible.
+   A later part shows its own subject only through a word such as "the", "it" or a number at its start, or one or two words followed by a verb such as "was" or "did"; continuations such as "but reduces mortality" or "while significantly reducing mortality" keep the whole sentence so the shared subject stays visible.
    A source cited more than once uses the whole sentence; other sources can keep their scopes.
 5. For each cited reference with a DOI, the app reads open-access full text from Europe PMC, or else the abstract from OpenAlex. Other sources are pasted by the user.
    Scientific superscripts and subscripts stay explicit, such as `10^(6)` and `H_(2)O`.
