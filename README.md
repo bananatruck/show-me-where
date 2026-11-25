@@ -44,7 +44,8 @@ Only free models, whose ids end in `:free`, are accepted.
 6. Each claim and one source's text go to a free OpenRouter model. The model must answer with a grade, one whole sentence copied from the source, and a reason.
 7. The app keeps a grade only if the quote is one or more whole sentences found in the source text and shares at least one key word with the claim when the claim has extractable key words. It normalises only quotes, dashes, ligatures, invisible characters and whitespace.
 8. A kept quote is shown highlighted between the sentences before and after it, with warnings when the claim has a number the quote lacks, or the quote has a negation, a hedge, or earlier-work wording that the claim lacks.
-9. A claim shows a backing grade only if every cited source backs it. If one source backs it and another contradicts it, it reads "Sources disagree"; if another source could not be read or checked, it reads "Not every cited source backs it".
+9. A claim shows a backing grade only if every cited source backs it. If one source backs a cited scope and another contradicts that same scope, it reads "Sources disagree".
+   Opposing grades on different scopes, or a source that could not be read or checked, give "Not every cited source backs it".
 
 ## What it does not do
 

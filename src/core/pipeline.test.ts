@@ -115,6 +115,33 @@ describe("runCheck", () => {
     }
   });
 
+  it("keeps mixed support separate from disagreement across citation scopes", async () => {
+    const survival = "Survival improved in the adult treatment group.";
+    const mortality = "Mortality did not fall in the adult treatment group.";
+    const replies = {
+      "c1:1": JSON.stringify({ grade: "supported", evidence: survival, reason: "r" }),
+      "c1:2": JSON.stringify({ grade: "not_supported", evidence: mortality, reason: "r" }),
+      "c1:3": JSON.stringify({ grade: "not_supported", evidence: survival, reason: "r" }),
+    };
+    const sources: Record<number, SourceText> = {
+      1: { status: "ok", text: survival, origin: "pasted" },
+      2: { status: "ok", text: mortality, origin: "pasted" },
+      3: { status: "ok", text: survival, origin: "pasted" },
+    };
+    for (const [sentence, headline] of [
+      ["Survival improved in adults [1], while mortality fell in adults [2].", "not_every_source_backs_it"],
+      ["Survival improved in adults [1, 2].", "sources_disagree"],
+      ["Survival improved in adults [1, 3], while mortality fell in adults [2].", "sources_disagree"],
+    ]) {
+      const analysis = analyzeText(`${sentence}\nReferences\n[1] First.\n[2] Second.\n[3] Third.`);
+      const report = await runCheck(analysis, sources, createReplayProvider(replies));
+      expect(report.results[0]?.headline).toBe(headline);
+      expect(report.results[0]?.perSource.map((p) => p.judgement.grade)).toEqual(
+        analysis.claims[0]?.refs.map((ref) => ref === 1 ? "supported" : "not_supported"),
+      );
+    }
+  });
+
   it("never shows a backing headline for a claim that also cites a reference that is not in the list", async () => {
     const analysis = analyzeText("Mortality fell by 50% [1, 3].\nReferences\n[1] One.\n[2] Two.");
     expect(analysis.claims[0]?.unresolved).toEqual(["[3]"]);

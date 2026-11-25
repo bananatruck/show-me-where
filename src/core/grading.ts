@@ -365,16 +365,20 @@ const UNBACKED_ORDER: readonly Grade[] = [
  * A claim's headline across its sources. A backing grade is shown only when
  * every cited source backs the claim, and then the weakest of them; a source
  * that contradicts the claim, or one that could not be read or checked, is
- * never hidden behind one that supports it.
+ * never hidden behind one that supports it. Disagreement requires opposing
+ * grades on the same cited scope; different scopes have mixed support.
  */
-export function headlineGrade(grades: readonly Grade[]): Headline {
+export function headlineGrade(readings: readonly { grade: Grade; scope: string }[]): Headline {
+  const grades = readings.map((reading) => reading.grade);
   if (grades.length === 0) return "source_not_reachable";
   const backing = (g: Grade) => g === "supported" || g === "partly_supported";
   if (grades.every(backing)) {
     return grades.includes("partly_supported") ? "partly_supported" : "supported";
   }
   if (grades.some(backing)) {
-    return grades.includes("not_supported") ? "sources_disagree" : "not_every_source_backs_it";
+    const backedScopes = new Set(readings.filter((r) => backing(r.grade)).map((r) => normalizeForMatch(r.scope)));
+    const disagree = readings.some((r) => r.grade === "not_supported" && backedScopes.has(normalizeForMatch(r.scope)));
+    return disagree ? "sources_disagree" : "not_every_source_backs_it";
   }
   for (const grade of UNBACKED_ORDER) {
     if (grades.includes(grade)) return grade;

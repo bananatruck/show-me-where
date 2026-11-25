@@ -105,8 +105,8 @@ export async function runCheck(
       // A cited reference that is not in the list counts as a source that could
       // not be read, so it can never sit silently behind a backing headline.
       headline: headlineGrade([
-        ...perSource.map((p) => p.judgement.grade),
-        ...claim.unresolved.map((): Grade => "source_not_reachable"),
+        ...perSource.map((p) => ({ grade: p.judgement.grade, scope: claim.scopes[p.ref] ?? claim.text })),
+        ...claim.unresolved.map((): { grade: Grade; scope: string } => ({ grade: "source_not_reachable", scope: claim.text })),
       ]),
       perSource,
     });

@@ -87,7 +87,8 @@ Narrative citations, a single citation group, a reference cited twice, parts sho
 The model always sees the whole sentence for context and the part it is asked to grade.
 A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
 Each source's own grade is shown beside it whenever the headline does not already say it.
-When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
+When one source backs a cited scope and another contradicts that same scope, the headline is "Sources disagree".
+Opposing grades on different scopes give "Not every cited source backs it", as does a source that could not be read, checked, or found to address the claim.
 When no source backs the claim, the headline is the best evidenced of the rest.
 A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
 So a contradicting or unchecked source is never hidden behind a supporting one.

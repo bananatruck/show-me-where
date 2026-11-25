@@ -41,6 +41,7 @@ A sample run, labelled on screen as a synthetic hand-written example, shows ever
 - When the claim has extractable key words, a quote that shares none of them is discarded, so a model steered into quoting an unrelated real sentence gets nothing through.
   A claim with no extractable key words skips this keyword check, while the quote must still be long enough and match whole source sentences.
 - A claim shows a backing grade only if every cited source backs it; otherwise it reads "Sources disagree" or "Not every cited source backs it".
+  Disagreement requires opposing grades on the same cited scope; opposing grades on different scopes give "Not every cited source backs it".
 - A failed model call is shown as "check failed", never as a grade.
 - Source text is fenced in the prompt with a random tag for each call, and the rules are repeated after it, to reduce prompt injection from hostile source text.
 - Everything except the model's reading is deterministic TypeScript, covered by unit and component tests.
