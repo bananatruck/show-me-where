@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
+import { checkEvidence } from "./evidence";
 import type { FetchLike } from "./types";
 import {
   europePmcSearchUrl,
@@ -47,6 +48,38 @@ describe("europepmc", () => {
       <back><p>Nested back.</p></back><p>End.</p></body>
       <back><p>Back.</p><ref-list><ref><p>Reference.</p></ref></ref-list></back></article>`;
     expect(extractJatsText(xml)).toBe("Abstract.\n\nBody.\n\nEnd.");
+  });
+
+  it("extractJatsText drops a figure, table or reference nested inside a paragraph", () => {
+    const xml =
+      "<article><body><p>Main result. <fig><caption><p>Caption-only claim.</p></caption></fig> End.</p>" +
+      "<p>Second. <table-wrap><p>Cell text.</p></table-wrap><xref>[2]</xref> Done.</p></body></article>";
+    expect(extractJatsText(xml)).toBe("Main result. End.\n\nSecond. [2] Done.");
+  });
+
+  it("extractJatsText turns a reference number glued to a full stop into a spaced marker", () => {
+    const xml =
+      '<article><body><p>Sleep latency fell by 15 minutes.<xref ref-type="bibr" rid="B1">1</xref> Total sleep time also rose.</p></body></article>';
+    expect(extractJatsText(xml)).toBe("Sleep latency fell by 15 minutes. [1] Total sleep time also rose.");
+  });
+
+  it("extractJatsText reads a paragraph nested in a list once", () => {
+    const xml =
+      "<article><body><p>Outer text.<list><list-item><p>Inner item.</p></list-item></list></p></body></article>";
+    expect(extractJatsText(xml)).toBe("Outer text.\n\nInner item.");
+  });
+
+  it("extractJatsText keeps a space after a nested list before the parent text goes on", () => {
+    const xml =
+      "<article><body><p>Outer.<list><list-item><p>Inner treatment improved survival.</p></list-item></list>Following sentence.</p></body></article>";
+    expect(extractJatsText(xml)).toBe("Outer.\n\nInner treatment improved survival.\n\nFollowing sentence.");
+  });
+
+  it("extractJatsText keeps a nested paragraph as its own paragraph, so a quote of it is a whole sentence", () => {
+    const xml = "<article><body><p>Results:<p>Treatment improved survival in adults.</p></p></body></article>";
+    const text = extractJatsText(xml);
+    expect(text).toBe("Results:\n\nTreatment improved survival in adults.");
+    expect(checkEvidence("Treatment improved survival in adults.", text)).toMatchObject({ ok: true, before: "Results:" });
   });
 
   it("extractJatsText returns empty string for invalid XML", () => {

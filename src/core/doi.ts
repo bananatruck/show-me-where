@@ -26,5 +26,8 @@ function count(text: string, ch: string): number {
 /** Finds a DOI written bare, after "doi:", or inside a doi.org link. */
 export function extractDoi(entry: string): string | null {
   const match = DOI.exec(entry);
-  return match ? trimDoi(match[0]) : null;
+  if (!match) return null;
+  // In a Markdown link "[10.1/x](https://doi.org/10.1/x)" the DOI ends at "](".
+  const doi = match[0].split("](")[0] ?? match[0];
+  return trimDoi(doi);
 }

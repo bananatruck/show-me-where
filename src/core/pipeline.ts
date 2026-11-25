@@ -86,6 +86,8 @@ export async function runCheck(
   sources: Readonly<Record<number, SourceText>>,
   provider: ModelProvider,
   onProgress?: (done: number, total: number) => void,
+  /** False once the run has been superseded; no further model call is made after that. */
+  isCurrent: () => boolean = () => true,
 ): Promise<CheckReport> {
   const total = analysis.claims.reduce((n, c) => n + c.refs.length, 0);
   let done = 0;
@@ -93,13 +95,19 @@ export async function runCheck(
   for (const claim of analysis.claims) {
     const perSource: ClaimResult["perSource"] = [];
     for (const ref of claim.refs) {
+      if (!isCurrent()) return { results, modelLabel: provider.label };
       perSource.push({ ref, judgement: await judgeOne(claim, ref, sources[ref], provider) });
       done += 1;
       onProgress?.(done, total);
     }
     results.push({
       claim,
-      headline: headlineGrade(perSource.map((p) => p.judgement.grade)),
+      // A cited reference that is not in the list counts as a source that could
+      // not be read, so it can never sit silently behind a backing headline.
+      headline: headlineGrade([
+        ...perSource.map((p) => p.judgement.grade),
+        ...claim.unresolved.map((): Grade => "source_not_reachable"),
+      ]),
       perSource,
     });
   }

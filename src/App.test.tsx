@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { REASONS } from "./core/grading";
 import { SAMPLE_RUN } from "./fixtures/sample";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   window.sessionStorage.clear();
   window.localStorage.clear();
   delete document.documentElement.dataset.theme;
@@ -98,15 +99,28 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(":free");
   });
 
-  it("keeps the key in session storage unless asked to remember it", () => {
+  it("keeps the key only in memory and wipes keys stored by earlier versions", () => {
+    window.localStorage.setItem("claim-check.openrouter-key", "old");
+    window.sessionStorage.setItem("claim-check.openrouter-key", "old");
+    render(<App />);
+    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBeNull();
+    expect(window.sessionStorage.getItem("claim-check.openrouter-key")).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
+    expect((screen.getByLabelText("OpenRouter key") as HTMLInputElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "abc" } });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(screen.queryByLabelText("Remember on this device")).toBeNull();
+  });
+
+  it("forgets the key when switching back to the sample run", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
     fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "abc" } });
-    expect(window.sessionStorage.getItem("claim-check.openrouter-key")).toBe("abc");
-    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBeNull();
-
-    fireEvent.click(screen.getByLabelText("Remember on this device"));
-    expect(window.localStorage.getItem("claim-check.openrouter-key")).toBe("abc");
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Live with your key" }));
+    expect((screen.getByLabelText("OpenRouter key") as HTMLInputElement).value).toBe("");
   });
 
   it("switches to the dark theme and remembers it", () => {
@@ -116,5 +130,165 @@ describe("App", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
     expect(window.localStorage.getItem("show-me-where.theme")).toBe("dark");
+  });
+
+  it("ignores a check that finishes after the text was replaced", async () => {
+    let answer: (response: Response) => void = () => {};
+    vi.spyOn(window, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => (answer = resolve)),
+    );
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the first claim holds." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Text to check"), {
+      target: { value: "Second claim holds [1].\nReferences\n[1] Second source." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    answer(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: JSON.stringify({ grade: "cannot_tell", evidence: "", reason: "r" }) } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("list", { name: "Results" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Check claims" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("clears pasted source text when the document changes", () => {
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), { target: { value: "old text" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect((screen.getByLabelText("Source text for [1]") as HTMLTextAreaElement).value).toBe("old text");
+
+    fireEvent.change(screen.getByLabelText("Text to check"), {
+      target: { value: "Second claim holds [1].\nReferences\n[1] Second source." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect((screen.getByLabelText("Source text for [1]") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("says which services were already contacted when the key is rejected", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "No auth credentials found", code: 401 } }), { status: 401 }),
+    );
+    render(<App />);
+    goLive("First claim holds [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the first claim holds." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const alert = (await screen.findByRole("alert")).textContent ?? "";
+    expect(alert).toContain("OpenRouter rejected the key (HTTP 401)");
+    expect(alert).toContain("Already contacted in this run: OpenRouter google/gemma-4-31b-it:free.");
+    expect(alert).not.toContain("nothing was graded");
+  });
+
+  it("moves focus to each new step and announces the verified quote to screen readers", async () => {
+    render(<App />);
+    expect(document.getElementById("main")?.getAttribute("tabindex")).toBe("-1");
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: /Claims and sources/ }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const heading = await screen.findByRole("heading", { name: /What the sources say/ });
+    await vi.waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(screen.queryByText(/Checked \d+ of \d+/)).toBeNull();
+
+    const first = Array.from(screen.getByRole("list", { name: "Results" }).children)[0];
+    expect(first?.querySelector(".passage")?.textContent).toContain(
+      "Verified quote: Students who slept at least seven hours",
+    );
+    expect(first?.querySelector(".passage")?.textContent).toContain("End of quote.");
+  });
+
+  it("names a cited reference that is not in the list beside the claim's result", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  grade: "supported",
+                  evidence: "Mortality fell by 50% in the trial.",
+                  reason: "Same figure.",
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    render(<App />);
+    goLive("Mortality fell by 50% [1, 3].\nReferences\n[1] One.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "Mortality fell by 50% in the trial." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    const results = await screen.findByRole("list", { name: "Results" });
+    const item = results.children[0];
+    expect(item?.getAttribute("data-grade")).toBe("not_every_source_backs_it");
+    expect(item?.textContent).toContain("Also cited but not in your reference list, so not checked: [3].");
+    // The checked source's own grade stays visible under the non-backing headline.
+    expect(item?.querySelector(".source-label .verdict")?.textContent).toBe("Supported");
+  });
+
+  it("cancels the model request in flight and makes no more after switching to the sample run", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    vi.spyOn(window, "fetch").mockImplementation((_input, init) => {
+      signals.push(init?.signal);
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      });
+    });
+    render(<App />);
+    goLive("First claim holds here [1]. Second claim holds here [1].\nReferences\n[1] First source.");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.change(screen.getByLabelText("Source text for [1]"), {
+      target: { value: "The first source says the claims hold here." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(signals[0]?.aborted).toBe(true);
+    expect(window.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start the abstract fallback for a source lookup that was cancelled", async () => {
+    vi.spyOn(window, "fetch").mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    render(<App />);
+    goLive("First claim holds here [1].\nReferences\n[1] A paper. doi:10.1000/xyz");
+    fireEvent.change(screen.getByLabelText("OpenRouter key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find claims" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check claims" }));
+    await vi.waitFor(() => expect(window.fetch).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("radio", { name: "Sample run" }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.fetch).toHaveBeenCalledTimes(1);
   });
 });

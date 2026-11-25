@@ -45,6 +45,11 @@ describe("extractDoi", () => {
     expect(extractDoi("(see https://doi.org/10.1000/abc-1(2)x);")).toBe("10.1000/abc-1(2)x");
   });
 
+  it("stops a DOI at the end of a Markdown link", () => {
+    expect(extractDoi("Study. [10.1000/xyz](https://doi.org/10.1000/xyz)")).toBe("10.1000/xyz");
+    expect(extractDoi("[https://doi.org/10.1000/abc](https://doi.org/10.1000/abc)")).toBe("10.1000/abc");
+  });
+
   it("returns null when there is no DOI", () => {
     expect(extractDoi("A. Author. A book. Publisher, 2020.")).toBeNull();
   });

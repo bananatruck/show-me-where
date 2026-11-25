@@ -16,7 +16,9 @@ describe("sources", () => {
   });
 
   it("rebuildAbstract marks missing positions so a quote cannot span them", () => {
-    expect(rebuildAbstract({ last: [9], first: [2], second: [3] })).toBe("first second [...] last");
+    expect(rebuildAbstract({ last: [9], first: [2], second: [3] })).toBe("[...] first second [...] last");
+    expect(rebuildAbstract({ fasting: [2], raised: [3] })).toBe("[...] fasting raised");
+    expect(rebuildAbstract({ Fasting: [0], raised: [1] })).toBe("Fasting raised");
   });
 
   it("rebuildAbstract returns empty string for empty index", () => {

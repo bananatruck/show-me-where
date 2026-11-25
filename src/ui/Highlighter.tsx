@@ -3,7 +3,8 @@
  * (https://github.com/magicuidesign/magicui, apps/www/registry/magicui/highlighter.tsx),
  * MIT License, Copyright (c) Magic UI.
  *
- * Changes: no in-view trigger and no motion dependency; the stroke is drawn
+ * Changes: no in-view trigger and no motion dependency; the stroke is redrawn
+ * when the enclosing block resizes and hidden from screen readers; it is drawn
  * without animation when the reader prefers reduced motion; when the browser
  * lacks ResizeObserver (or drawing fails) the text keeps a plain CSS
  * highlight instead, so the quote is always marked.
@@ -39,14 +40,22 @@ export function Highlighter({ children, color }: HighlighterProps) {
         animate: !prefersReducedMotion(),
         animationDuration: 500,
       });
+      const container = element.parentElement ?? element;
+      // The stroke is decoration; the quote itself is marked up for screen readers.
+      const hideStroke = () =>
+        container.querySelectorAll("svg.rough-annotation").forEach((svg) => svg.setAttribute("aria-hidden", "true"));
       annotation.show();
+      hideStroke();
       // The drawn stroke replaces the plain CSS highlight.
       element.classList.add("quote--drawn");
+      // An inline element reports no resize when its lines reflow, so watch the
+      // block that holds it and redraw when that block changes size.
       observer = new ResizeObserver(() => {
         annotation.hide();
         annotation.show();
+        hideStroke();
       });
-      observer.observe(element);
+      observer.observe(container);
       return () => {
         observer?.disconnect();
         annotation.remove();

@@ -7,5 +7,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node",
+    // Let tests read the stylesheet as text (the contrast test checks its colour tokens).
+    css: { include: [/styles\.css/] },
   },
 });

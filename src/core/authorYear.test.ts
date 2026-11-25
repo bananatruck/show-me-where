@@ -133,3 +133,116 @@ describe("matchKey", () => {
     expect(matchKey("M\u00FCller")).toBe(matchKey("muller"));
   });
 });
+
+describe("names the first version missed", () => {
+  const refs = parseAuthorYearReferences(
+    [
+      "Garc\u00EDa, \u00C1., & L\u00F3pez, B. (2020). Accented initials.",
+      "van der Berg, P. (2020). A particle surname.",
+      "World Health Organization. (2021). Sleep guidance.",
+      "de la Cruz, M., Ortiz, N., & Ruiz, O. (2019). Three authors.",
+    ].join("\n"),
+  );
+
+  it("drops accented initials from surnames", () => {
+    expect(surnamesOf("Garc\u00EDa, \u00C1., & L\u00F3pez, B.")).toEqual(["Garc\u00EDa", "L\u00F3pez"]);
+    expect(findAuthorYearCitations("It held (Garc\u00EDa & L\u00F3pez, 2020).", refs).citations[0]?.refs).toEqual([1]);
+  });
+
+  it("reads a surname that starts with a lowercase particle", () => {
+    expect(findAuthorYearCitations("It held (van der Berg, 2020).", refs).citations[0]?.refs).toEqual([2]);
+    expect(findAuthorYearCitations("It held (de la Cruz et al., 2019).", refs).citations[0]?.refs).toEqual([4]);
+  });
+
+  it("reads a narrative citation by a group author, with the whole name in the span", () => {
+    const sentence = "World Health Organization (2021) recommends more sleep.";
+    expect(findAuthorYearCitations(sentence, refs).citations).toEqual([
+      { start: 0, end: 32, refs: [3], narrative: true },
+    ]);
+  });
+
+  it("reads a narrative citation after a capitalised opening word", () => {
+    const { citations } = findAuthorYearCitations("Recently van der Berg (2020) showed it.", refs);
+    expect(citations).toEqual([{ start: 9, end: 28, refs: [2], narrative: true }]);
+  });
+
+  it("reports a narrative citation that is not in the reference list", () => {
+    expect(findAuthorYearCitations("Recently Brown (2018) found an increase.", refs)).toEqual({
+      citations: [],
+      unresolved: ["Brown, 2018"],
+    });
+  });
+
+  it("still ignores parentheses that are not citations", () => {
+    expect(findAuthorYearCitations("In spring (in 2020) it rose (n = 40).", refs)).toEqual({
+      citations: [],
+      unresolved: [],
+    });
+  });
+});
+
+
+describe("reference entries and author counts", () => {
+  it("starts a new entry at an editor marker or a full date, so no DOI moves to the entry above", () => {
+    const refs = parseAuthorYearReferences(
+      [
+        "Alder, M. (2025). Unrelated book without a DOI.",
+        "Smith, J. (Ed.). (2020). Edited volume on vaccines. https://doi.org/10.1000/vaccine",
+        "Brown, K., & Gray, L. (Eds.). (2019b). Another edited volume.",
+        "Lane, P. (2020, May 14). News article. https://doi.org/10.1000/news",
+      ].join("\n"),
+    );
+    expect(refs.map((r) => [r.authors, r.year, r.doi])).toEqual([
+      [["Alder"], "2025", null],
+      [["Smith"], "2020", "10.1000/vaccine"],
+      [["Brown", "Gray"], "2019b", null],
+      [["Lane"], "2020", "10.1000/news"],
+    ]);
+  });
+
+  it("matches a two-name citation to the two-author entry, not the three-author one", () => {
+    const refs = parseAuthorYearReferences(
+      ["Smith, A., & Jones, B. (2020). Two authors.", "Smith, A., Jones, B., & Lee, C. (2020). Three authors."].join(
+        "\n",
+      ),
+    );
+    expect(findAuthorYearCitations("It held (Smith & Jones, 2020).", refs).citations[0]?.refs).toEqual([1]);
+    expect(findAuthorYearCitations("It held (Smith et al., 2020).", refs).citations[0]?.refs).toEqual([2]);
+  });
+
+  it("does not match et al. to a single-author entry", () => {
+    const refs = parseAuthorYearReferences("Smith, A. (2020). Single author.");
+    expect(findAuthorYearCitations("It held (Smith et al., 2020).", refs)).toEqual({
+      citations: [],
+      unresolved: ["Smith et al., 2020"],
+    });
+  });
+});
+
+describe("narrative readings", () => {
+  it("does not drop part of a compound surname to reach a different author", () => {
+    const refs = parseAuthorYearReferences("M\u00E1rquez, A. (2020). Another author.");
+    expect(findAuthorYearCitations("Garc\u00EDa M\u00E1rquez (2020) found it.", refs)).toEqual({
+      citations: [],
+      unresolved: ["Garc\u00EDa M\u00E1rquez, 2020"],
+    });
+  });
+
+  it("still drops an opening word such as Recently or However", () => {
+    const refs = parseAuthorYearReferences("Brown, K. (2018). A study.");
+    expect(findAuthorYearCitations("However, Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
+    expect(findAuthorYearCitations("Recently Brown (2018) found it.", refs).citations[0]?.refs).toEqual([1]);
+  });
+
+  it("drops an opening The, but still prefers a group name that starts with The", () => {
+    const refs = parseAuthorYearReferences(
+      ["Smith, A., & Jones, B. (2020). Two authors.", "The Lancet Commission. (2021). A report."].join("\n"),
+    );
+    expect(
+      findAuthorYearCitations("The Smith and Jones (2020) study found an increase.", refs).citations,
+    ).toEqual([{ start: 4, end: 26, refs: [1], narrative: true }]);
+    expect(
+      findAuthorYearCitations("The Lancet Commission (2021) set targets.", refs).citations,
+    ).toEqual([{ start: 0, end: 28, refs: [2], narrative: true }]);
+  });
+});

@@ -12,6 +12,8 @@
   --ink: #1b2333;
   --ink-soft: #4a566b;
   --rule: #c9d3de;
+  /* Borders of inputs, toggles and chips: at least 3:1 against surface and paper. */
+  --control-border: #7b879a;
   --highlight: #ffe45c;
   --highlight-ink: #1b2333;
   --focus: #2457c5;
@@ -36,6 +38,7 @@
   --ink: #e6ebf2;
   --ink-soft: #a9b4c4;
   --rule: #2c3747;
+  --control-border: #6b7a90;
   --highlight: #7a6512;
   --highlight-ink: #fff8d6;
   --focus: #8ab4ff;
@@ -64,6 +67,21 @@ body {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Long DOIs and links wrap instead of pushing the page sideways on a phone. */
+.step,
+.footer-panel {
+  overflow-wrap: anywhere;
 }
 
 .skip-link {
@@ -125,7 +143,7 @@ body {
 
 .theme-toggle {
   background: none;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   color: var(--ink);
   border-radius: 999px;
   padding: 0.35rem 0.9rem;
@@ -158,8 +176,10 @@ body {
 }
 
 .segmented {
+  position: relative;
   display: inline-flex;
-  border: 1px solid var(--rule);
+  flex-wrap: wrap;
+  border: 1px solid var(--control-border);
   border-radius: 999px;
   padding: 0.2rem;
   margin: 0 0 1rem;
@@ -173,9 +193,20 @@ body {
   clip: rect(0 0 0 0);
 }
 
+.segmented .seg {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The radio sits exactly over its label, so touch exploration finds it there. */
 .segmented input {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
+  cursor: pointer;
 }
 
 .segmented label {
@@ -221,7 +252,7 @@ body {
   font: inherit;
   color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: 4px;
   padding: 0.55rem 0.7rem;
 }
@@ -238,19 +269,6 @@ body {
   background: var(--paper);
 }
 
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1.25rem;
-}
-
-.check input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--ink);
-}
-
 .key-row {
   display: grid;
   gap: 0 1rem;
@@ -258,20 +276,7 @@ body {
 }
 
 @media (min-width: 720px) {
-  .check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1.25rem;
-}
-
-.check input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--ink);
-}
-
-.key-row {
+  .key-row {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -316,7 +321,7 @@ body {
   display: inline-block;
   font-family: var(--sans);
   font-size: var(--step--1);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--control-border);
   border-radius: 999px;
   padding: 0 0.6rem;
   margin-left: 0.4rem;
@@ -367,7 +372,8 @@ h3 {
 .verdict[data-grade="supported"] { color: var(--supported); }
 .verdict[data-grade="partly_supported"] { color: var(--partly); }
 .verdict[data-grade="not_supported"] { color: var(--against); }
-.verdict[data-grade="sources_disagree"] { color: var(--disagree); }
+.verdict[data-grade="sources_disagree"],
+.verdict[data-grade="not_every_source_backs_it"] { color: var(--disagree); }
 .verdict[data-grade="cannot_tell"],
 .verdict[data-grade="check_failed"],
 .verdict[data-grade="source_not_reachable"] { color: var(--unsure); }

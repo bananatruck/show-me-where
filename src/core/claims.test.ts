@@ -30,6 +30,17 @@ describe("splitSentences", () => {
     expect(splitSentences("It rose.[1] Then fell [2].")).toEqual(["It rose.[1]", "Then fell [2]."]);
   });
 
+  it("keeps a numeric marker separated from the full stop by a space with its sentence", () => {
+    expect(splitSentences("It rose. [1] Then fell [2].")).toEqual(["It rose. [1]", "Then fell [2]."]);
+  });
+
+  it("does not attach a bracketed word to the previous sentence", () => {
+    expect(splitSentences("See below. [Table 1] shows the data.")).toEqual([
+      "See below.",
+      "[Table 1] shows the data.",
+    ]);
+  });
+
   it("always splits at a blank line", () => {
     expect(splitSentences("A heading\n\nThe text.")).toEqual(["A heading", "The text."]);
   });
@@ -67,6 +78,13 @@ describe("parseMarkers", () => {
     });
   });
 
+  it("ignores a range whose ends are not safe integers instead of looping forever", () => {
+    expect(parseMarkers("A [9007199254740992-9007199254740992].", known)).toEqual({
+      refs: [],
+      text: "A [9007199254740992-9007199254740992].",
+    });
+  });
+
   it("ignores a reversed or oversized range", () => {
     expect(parseMarkers("A [3-1] B [1-999].", known)).toEqual({
       refs: [],
@@ -91,6 +109,7 @@ describe("extractClaims", () => {
           sentence: "Sleep improves memory [1].",
           refs: [1],
           scopes: { 1: "Sleep improves memory." },
+          unresolved: [],
         },
         {
           id: "c2",
@@ -98,6 +117,7 @@ describe("extractClaims", () => {
           sentence: "Naps help too [2, 3].",
           refs: [2, 3],
           scopes: { 2: "Naps help too.", 3: "Naps help too." },
+          unresolved: [],
         },
       ],
       uncited: ["This matters for students."],
@@ -115,6 +135,55 @@ describe("extractClaims", () => {
       1: "Memory scores rose sharply",
       2: "while reaction times did not change at all",
     });
+  });
+
+  it("checks the known references in a bracket and reports the unknown ones", () => {
+    const { claims, uncited, unresolved } = extractClaims(
+      "Mortality fell by 50% [1, 3]. Naps improve recall [4]. In [2019] it rose.",
+      "numeric",
+      numericRefs([1, 2]),
+    );
+    expect(claims.map((c) => [c.text, c.refs])).toEqual([["Mortality fell by 50%.", [1]]]);
+    expect(uncited).toEqual(["Naps improve recall [4].", "In [2019] it rose."]);
+    expect(unresolved).toEqual(["[3]", "[4]"]);
+  });
+
+  it.each([
+    "No evidence shows that Drug X improves survival [1] or reduces mortality [2].",
+    "Drug X improves survival in older adults [1] and reduces mortality in younger ones [2].",
+    "It is unlikely that coffee improves memory [1], while tea improves sleep quality [2].",
+    "Drug X improves survival [1], while reducing mortality in adults [2].",
+    "Drug X improves survival in adults [1], but not in older patients overall [2].",
+    "Drug X improves survival in adults [1], while also lowering mortality rates [2].",
+  ])("uses the whole sentence when the parts share a frame or subject: %j", (sentence) => {
+    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
+    const text = claims[0]?.text ?? "";
+    expect(claims[0]?.scopes).toEqual({ 1: text, 2: text });
+  });
+
+  it("uses the whole sentence when words follow the last citation", () => {
+    const sentence =
+      "Earlier clinical studies [1] and recent patient trials [2] proved that bleach cures COVID-19 in humans.";
+    const { claims } = extractClaims(sentence, "numeric", numericRefs([1, 2]));
+    const whole = "Earlier clinical studies and recent patient trials proved that bleach cures COVID-19 in humans.";
+    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
+  });
+
+  it("uses the whole sentence when a narrative citation is mixed with parenthetical ones", () => {
+    const references = parseAuthorYearReferences(
+      [
+        "Smith, A. (2020). One.",
+        "Jones, B. (2021). Two.",
+        "Lee, C. (2022). Three.",
+      ].join("\n"),
+    );
+    const { claims } = extractClaims(
+      "Smith (2020) showed that exercise improves mood (Jones, 2021), while bleach cures COVID-19 (Lee, 2022).",
+      "author_year",
+      references,
+    );
+    const whole = "Smith (2020) showed that exercise improves mood, while bleach cures COVID-19.";
+    expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole, 3: whole });
   });
 
   it("falls back to the whole sentence when a scope would be too short", () => {
@@ -142,6 +211,7 @@ describe("extractClaims", () => {
           sentence: "Smith and Jones (2020) found that sleep improves memory.",
           refs: [1],
           scopes: { 1: "Smith and Jones (2020) found that sleep improves memory." },
+          unresolved: [],
         },
         {
           id: "c2",
@@ -149,6 +219,7 @@ describe("extractClaims", () => {
           sentence: "Naps also help recall (Lee et al., 2019, p. 4; Smith & Jones, 2020).",
           refs: [1, 2],
           scopes: { 1: "Naps also help recall.", 2: "Naps also help recall." },
+          unresolved: [],
         },
       ],
       uncited: ["Caffeine hurts sleep (Brown, 2018)."],

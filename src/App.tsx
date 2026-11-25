@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchFullTextByDoi } from "./core/europepmc";
 import { analyzeText, resolveSources, runCheck, type Analysis, type CheckReport } from "./core/pipeline";
 import { ProviderError, createOpenRouterProvider, createReplayProvider } from "./core/provider";
 import { fetchSourceByDoi, lookupDoi } from "./core/sources";
-import { withTimeout } from "./core/timeout";
+import { withSignal, withTimeout } from "./core/timeout";
 import type { FetchLike, SourceText } from "./core/types";
 import { SAMPLE_RUN } from "./fixtures/sample";
-import { loadKey, saveKey } from "./keyStore";
+import { forgetStoredKeys } from "./keyStore";
 import { Results } from "./ui/Results";
 import { HIGHLIGHT, applyTheme, initialTheme, type Theme } from "./ui/theme";
 
@@ -28,9 +28,9 @@ function sampleSources(): Record<number, SourceText> {
 
 const browserFetch: FetchLike = (input, init) => window.fetch(input, init);
 /** A slow source service is treated as unreachable, so the lookup moves on. */
-const sourceFetch = withTimeout(browserFetch, 20_000);
+const SOURCE_TIMEOUT_MS = 20_000;
 /** Free models can be slow; a call that hangs longer than this becomes "check failed". */
-const modelFetch = withTimeout(browserFetch, 120_000);
+const MODEL_TIMEOUT_MS = 120_000;
 
 /** Problems found in step 1, worded as what to do next. */
 function analysisProblem(text: string, analysis: Analysis): string | null {
@@ -52,9 +52,8 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [mode, setMode] = useState<Mode>("sample");
   const [liveText, setLiveText] = useState("");
-  const [stored] = useState(loadKey);
-  const [apiKey, setApiKey] = useState(stored.key);
-  const [remember, setRemember] = useState(stored.remember);
+  // The key lives only in memory; it is gone when the page closes.
+  const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -65,14 +64,39 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  /** Identifies the newest check; a check that is no longer newest must not write state. */
+  const runRef = useRef(0);
+  /** Aborts the newest check's outside requests when that check is superseded. */
+  const abortRef = useRef<AbortController | null>(null);
+  const step2Ref = useRef<HTMLHeadingElement>(null);
+  const step3Ref = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     applyTheme(theme, false);
   }, [theme]);
 
+  useEffect(() => {
+    forgetStoredKeys();
+  }, []);
+
+  // Move focus to each step as it appears, so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (analysis && !problem) step2Ref.current?.focus();
+  }, [analysis, problem]);
+
+  useEffect(() => {
+    if (report) step3Ref.current?.focus();
+  }, [report]);
+
   const text = mode === "sample" ? SAMPLE_RUN.text : liveText;
 
   function reset() {
+    // Any check still running belongs to the text being replaced; disown it
+    // and cancel its requests, so no more claims or key leave the browser.
+    runRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
     setAnalysis(null);
     setProblem(null);
     setReport(null);
@@ -84,6 +108,7 @@ export function App() {
   function switchMode(next: Mode) {
     setMode(next);
     setPasted({});
+    if (next === "sample") setApiKey("");
     reset();
   }
 
@@ -91,12 +116,6 @@ export function App() {
     const next = theme === "dark" ? "light" : "dark";
     applyTheme(next, true);
     setTheme(next);
-  }
-
-  function changeKey(key: string, keep: boolean) {
-    setApiKey(key);
-    setRemember(keep);
-    saveKey(key, keep);
   }
 
   function findClaims() {
@@ -107,11 +126,22 @@ export function App() {
   }
 
   async function check(current: Analysis) {
+    runRef.current += 1;
+    const run = runRef.current;
+    const live = () => runRef.current === run;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Cancelled when this check is superseded; the timeouts added below still apply.
+    const runFetch = withSignal(browserFetch, controller.signal);
     setError(null);
     setReport(null);
     setBusy(true);
-    const onProgress = (done: number, total: number) =>
-      setProgress(`Checked ${done} of ${total} claim and source pairs.`);
+    // Every outside service this run has contacted, so an error can say so too.
+    const called = new Set<string>();
+    const onProgress = (done: number, total: number) => {
+      if (live()) setProgress(`Checked ${done} of ${total} claim and source pairs.`);
+    };
     try {
       if (mode === "sample") {
         const sampleText = sampleSources();
@@ -120,44 +150,60 @@ export function App() {
           resolved[n] = sampleText[n] ?? { status: "unreachable", reason: SAMPLE_MISSING };
         }
         const provider = createReplayProvider(SAMPLE_RUN.replies, "Hand-written replies (synthetic sample)");
+        const result = await runCheck(current, resolved, provider, onProgress);
+        if (!live()) return;
         setSources(resolved);
-        setReport(await runCheck(current, resolved, provider, onProgress));
         setServices([]);
+        setReport(result);
+        setProgress("");
         return;
       }
       if (apiKey.trim() === "") {
         setError("Enter your OpenRouter key to run a live check. The sample run needs no key.");
         return;
       }
-      const provider = createOpenRouterProvider({ apiKey, model, fetchImpl: modelFetch });
-      const called = new Set<string>();
+      const provider = createOpenRouterProvider({
+        apiKey,
+        model,
+        fetchImpl: withTimeout(runFetch, MODEL_TIMEOUT_MS),
+      });
       setProgress("Fetching source text.");
       const resolved = await resolveSources(current, pasted, (doi) =>
         lookupDoi(doi, {
-          fullText: (d) => {
+          fullText: async (d) => {
+            if (controller.signal.aborted) return { status: "unreachable", reason: "The check was cancelled." };
             called.add("Europe PMC (full-text lookup by DOI)");
-            return fetchFullTextByDoi(d, sourceFetch);
+            return fetchFullTextByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },
-          abstract: (d) => {
+          abstract: async (d) => {
+            // A cancelled check does not move on to the next source.
+            if (controller.signal.aborted) return { status: "unreachable", reason: "The check was cancelled." };
             called.add("OpenAlex (abstract lookup by DOI)");
-            return fetchSourceByDoi(d, sourceFetch);
+            return fetchSourceByDoi(d, withTimeout(runFetch, SOURCE_TIMEOUT_MS));
           },
         }),
       );
+      if (!live()) return;
       setSources(resolved);
       if (Object.values(resolved).some((s) => s.status === "ok")) called.add(provider.label);
       setServices([...called]);
-      setReport(await runCheck(current, resolved, provider, onProgress));
+      const result = await runCheck(current, resolved, provider, onProgress, live);
+      if (!live()) return;
+      setReport(result);
+      setProgress("");
     } catch (e) {
+      if (!live()) return;
       setProgress("");
       const message = e instanceof Error ? e.message : String(e);
+      const contacted =
+        called.size > 0 ? ` Already contacted in this run: ${[...called].join(", ")}.` : "";
       setError(
         e instanceof ProviderError && e.kind === "auth"
-          ? `${message}. Check the key and try again; nothing was graded.`
-          : message,
+          ? `${message}. Check the key and try again. No results are shown.${contacted}`
+          : `${message}${contacted}`,
       );
     } finally {
-      setBusy(false);
+      if (live()) setBusy(false);
     }
   }
 
@@ -178,17 +224,21 @@ export function App() {
         </button>
       </header>
 
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         <section className="step" aria-labelledby="step-1">
           <h2 id="step-1">
             <span className="step-number">1</span> Paste your text
           </h2>
           <fieldset className="segmented">
             <legend>Mode</legend>
-            <input id="mode-sample" type="radio" name="mode" checked={mode === "sample"} onChange={() => switchMode("sample")} />
-            <label htmlFor="mode-sample">Sample run</label>
-            <input id="mode-live" type="radio" name="mode" checked={mode === "live"} onChange={() => switchMode("live")} />
-            <label htmlFor="mode-live">Live with your key</label>
+            <span className="seg">
+              <input id="mode-sample" type="radio" name="mode" checked={mode === "sample"} onChange={() => switchMode("sample")} />
+              <label htmlFor="mode-sample">Sample run</label>
+            </span>
+            <span className="seg">
+              <input id="mode-live" type="radio" name="mode" checked={mode === "live"} onChange={() => switchMode("live")} />
+              <label htmlFor="mode-live">Live with your key</label>
+            </span>
           </fieldset>
 
           {mode === "sample" ? (
@@ -202,12 +252,12 @@ export function App() {
             <div className="reading">
               <p className="quiet">
                 In a live run, each DOI goes to Europe PMC for open-access full text, then to OpenAlex for the abstract if there is no full text.
-                Each claim and its source text go to OpenRouter under your key. Your key stays in this browser. Nothing else is sent anywhere.
+                Each claim and its source text go to OpenRouter under your key. Your key is kept only in this page's memory, never stored, and is forgotten when you switch to the sample run or close the page. Nothing else is sent anywhere.
               </p>
               <div className="key-row">
                 <label className="field">
                   <span>OpenRouter key</span>
-                  <input type="password" autoComplete="off" value={apiKey} onChange={(e) => changeKey(e.target.value, remember)} />
+                  <input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
                 </label>
                 <label className="field">
                   <span>Model id</span>
@@ -217,9 +267,6 @@ export function App() {
               <p className="quiet" id="model-help">
                 Only free models, whose ids end in <code>:free</code>, are allowed.
               </p>
-              <label className="check">
-                <input type="checkbox" checked={remember} onChange={(e) => changeKey(apiKey, e.target.checked)} /> Remember on this device
-              </label>
             </div>
           )}
 
@@ -232,6 +279,8 @@ export function App() {
               aria-describedby="text-help"
               onChange={(e) => {
                 setLiveText(e.target.value);
+                // Pasted source text belongs to the old document's reference numbers.
+                setPasted({});
                 reset();
               }}
             />
@@ -251,7 +300,7 @@ export function App() {
 
         {analysis && !problem && (
           <section className="step" aria-labelledby="step-2">
-            <h2 id="step-2">
+            <h2 id="step-2" tabIndex={-1} ref={step2Ref}>
               <span className="step-number">2</span> Claims and sources
             </h2>
             <ol className="claims" aria-label="Cited claims">
@@ -333,7 +382,7 @@ export function App() {
 
         {analysis && report && (
           <section className="step" aria-labelledby="step-3">
-            <h2 id="step-3">
+            <h2 id="step-3" tabIndex={-1} ref={step3Ref}>
               <span className="step-number">3</span> What the sources say
             </h2>
             <Results

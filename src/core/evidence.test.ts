@@ -70,6 +70,66 @@ describe("checkEvidence", () => {
     });
   });
 
+  it("does not treat an abbreviation as the start of a sentence", () => {
+    const source = "We found no evidence that e.g. fasting raises resting metabolic rate in adults.";
+    expect(checkEvidence("fasting raises resting metabolic rate in adults.", source)).toEqual({
+      ok: false,
+      reason: "not_full_sentence",
+    });
+  });
+
+  it("does not treat an abbreviation as the end of a sentence", () => {
+    const source = "Benefits were seen in some fruit, e.g. apples, but not in pears. Next sentence here.";
+    expect(checkEvidence("Benefits were seen in some fruit, e.g.", source)).toEqual({
+      ok: false,
+      reason: "not_full_sentence",
+    });
+  });
+
+  it("accepts a whole sentence quoted without the citation marker that follows it", () => {
+    const source = "Naps improved recall on the same day.[3] Longer naps caused grogginess.";
+    expect(checkEvidence("Naps improved recall on the same day.", source)).toMatchObject({
+      ok: true,
+      after: "Longer naps caused grogginess.",
+    });
+  });
+
+  it.each([
+    ["We found no benefit, unlike J.A. Smith who reported that survival doubled in all patients.", "Smith who reported that survival doubled in all patients."],
+    ["We found no benefit in the U.S. Patients in early unblinded cohorts appeared to improve.", "Patients in early unblinded cohorts appeared to improve."],
+    ["We found no benefit ... Patients in the rumor mill claimed a cure.", "Patients in the rumor mill claimed a cure."],
+    ["No trial by the Dept. Health Services showed that the drug cured anyone.", "Health Services showed that the drug cured anyone."],
+  ])("rejects a fragment that starts after an abbreviation or ellipsis in %j", (source, quote) => {
+    expect(checkEvidence(quote, source)).toEqual({ ok: false, reason: "not_full_sentence" });
+  });
+
+  it.each([
+    ["We sequenced the tissue. mRNA expression increased threefold in treated mice.", "mRNA expression increased threefold in treated mice."],
+    ["We tested two doses. p53 levels doubled at the higher dose.", "p53 levels doubled at the higher dose."],
+    ["We tested two drugs. \u03B2-blockers lowered pressure in most patients.", "\u03B2-blockers lowered pressure in most patients."],
+    ["We read French work. \u00C9tudes show the same trend in adults.", "\u00C9tudes show the same trend in adults."],
+  ])("accepts a sentence that starts with a lower-case or non-ASCII word in %j", (source, quote) => {
+    expect(checkEvidence(quote, source)).toMatchObject({ ok: true });
+  });
+
+  it("treats a paragraph break as a sentence boundary, as after a heading", () => {
+    const source = "Results\n\nSurvival increased by 20% in the treatment group.";
+    expect(checkEvidence("Survival increased by 20% in the treatment group.", source)).toEqual({
+      ok: true,
+      before: "Results",
+      after: "",
+    });
+  });
+
+  it("accepts a quote that runs across a paragraph break", () => {
+    const source = "Treatment improved survival.\n\nRecovery improved after treatment.\n\nNo other change was seen.";
+    expect(checkEvidence("Treatment improved survival. Recovery improved after treatment.", source)).toEqual({
+      ok: true,
+      before: "",
+      after: "No other change was seen.",
+    });
+  });
+
   it("rejects a quote that stops in the middle of a sentence", () => {
     expect(checkEvidence("Participants slept 7.1 hours", SOURCE)).toEqual({
       ok: false,

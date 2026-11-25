@@ -12,6 +12,7 @@ export const HEADLINE_TEXT: Record<Headline, string> = {
   source_not_reachable: "Source not reachable",
   check_failed: "Check failed",
   sources_disagree: "Sources disagree",
+  not_every_source_backs_it: "Not every cited source backs it",
 };
 
 const SHORT_GRADE: Record<Headline, string> = {
@@ -22,6 +23,7 @@ const SHORT_GRADE: Record<Headline, string> = {
   source_not_reachable: "Source not reachable",
   check_failed: "Check failed",
   sources_disagree: "Sources disagree",
+  not_every_source_backs_it: "Not every cited source backs it",
 };
 
 export function originText(source: SourceText | undefined): string {
@@ -51,7 +53,7 @@ function SourceCheck({
   source: SourceText | undefined;
   judgement: Judgement;
   highlight: string;
-  /** Only when a claim cites several sources; otherwise the headline already says it. */
+  /** Only when the headline does not already say it. */
   showGrade: boolean;
 }) {
   return (
@@ -73,7 +75,9 @@ function SourceCheck({
         <>
           <p className="passage">
             {judgement.context.before && <span className="context">{judgement.context.before} </span>}
+            <span className="visually-hidden">Verified quote: </span>
             <Highlighter color={highlight}>{judgement.evidence}</Highlighter>
+            <span className="visually-hidden"> End of quote.</span>
             {judgement.context.after && <span className="context"> {judgement.context.after}</span>}
           </p>
           <div className="reading-note">
@@ -146,10 +150,17 @@ function ResultItem({
             source={sources[ref]}
             judgement={judgement}
             highlight={highlight}
-            showGrade={perSource.length > 1}
+            // Shown whenever it could differ from the headline: several sources, or
+            // a cited reference that is not in the list.
+            showGrade={perSource.length > 1 || claim.unresolved.length > 0 || judgement.grade !== headline}
           />
         ))}
       </ul>
+      {claim.unresolved.length > 0 && (
+        <p className="reading-note">
+          Also cited but not in your reference list, so not checked: {claim.unresolved.join(", ")}.
+        </p>
+      )}
     </li>
   );
 }

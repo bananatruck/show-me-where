@@ -13,6 +13,11 @@ export function europePmcFullTextUrl(pmcid: string): string {
 /** Maximum number of characters retained from full text. */
 export const MAX_FULL_TEXT_CHARS = 120000;
 
+/** Unicode paragraph separator, used only to mark block edges while reading. */
+const BLOCK_BREAK = "\u2029";
+
+const EXCLUDED = "ref-list, table-wrap, fig, supplementary-material, back";
+
 /** Read abstract and body paragraphs from JATS, excluding ancillary matter. */
 export function extractJatsText(
   xml: string,
@@ -26,10 +31,32 @@ export function extractJatsText(
     ...document.querySelectorAll("front abstract p"),
     ...document.querySelectorAll("body p"),
   ]
-    .filter((paragraph) => paragraph.closest(
-      "ref-list, table-wrap, fig, supplementary-material, back",
-    ) === null)
-    .map((paragraph) => (paragraph.textContent ?? "").replace(/\s+/g, " ").trim())
+    .filter((paragraph) => paragraph.closest(EXCLUDED) === null)
+    // A paragraph inside another (in a list, say) is read as part of the outer one.
+    .filter((paragraph) => paragraph.parentElement?.closest("p") == null)
+    .map((paragraph) => {
+      // A figure or table can sit inside a paragraph; drop it before reading the text.
+      const copy = paragraph.cloneNode(true) as Element;
+      copy.querySelectorAll(EXCLUDED).forEach((node) => node.remove());
+      // A reference number glued to a full stop ("minutes.1") would hide the
+      // sentence boundary; write it as a spaced marker ("minutes. [1]").
+      copy.querySelectorAll('xref[ref-type="bibr"]').forEach((xref) => {
+        const label = (xref.textContent ?? "").trim().replace(/^\[|\]$/g, "");
+        if (/^[\d\s,\u2013-]+$/.test(label)) xref.textContent = ` [${label}]`;
+      });
+      // A nested block (a list, a paragraph in a paragraph) is a paragraph of
+      // its own: mark both sides, then split there, so the boundary survives
+      // the whitespace clean-up below.
+      copy.querySelectorAll("p, list-item, list").forEach((block) => {
+        block.prepend(BLOCK_BREAK);
+        block.append(BLOCK_BREAK);
+      });
+      return (copy.textContent ?? "")
+        .split(BLOCK_BREAK)
+        .map((part) => part.replace(/\s+/g, " ").trim())
+        .filter((part) => part !== "")
+        .join("\n\n");
+    })
     .filter((text) => text !== "")
     .join("\n\n");
 }

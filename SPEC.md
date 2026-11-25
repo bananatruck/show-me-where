@@ -47,7 +47,8 @@ Until a real run is recorded with a key, the sample is a hand-written fixture, a
 The user sees a mode switch (Sample run or Live with your key), a short line saying what leaves the browser in that mode, and one large text box.
 In Sample run mode the text box holds the synthetic example, read only, under a label that says it is synthetic.
 In Live mode the user pastes a paragraph and its reference list, and enters an OpenRouter key and a `:free` model id.
-The key is kept in session storage by default, and in local storage only if the user ticks "Remember on this device".
+The key is kept only in the page's memory: it is never written to browser storage, because storage is shared by every page on the same github.io origin, and it is forgotten when the user switches to the sample run or closes the page.
+Any copy an earlier version stored is removed when the page loads.
 "Find claims" runs the deterministic parser; nothing leaves the browser at this step.
 Empty input, a missing reference list, and text with no matched citations each get a message that says what to do next, and citations that match nothing in the reference list are named.
 
@@ -81,9 +82,15 @@ A DOI is taken from an entry when it is written bare, after `doi:`, or inside a 
 
 A sentence that cites several sources becomes one claim with several sources, and each source is graded on its own.
 When the citations sit at different points in the sentence, as in "Scores rose sharply [1], while reaction times did not change [2]", each source is graded against the part of the sentence its citation follows.
-Narrative citations, a single citation group, a reference cited twice, and parts shorter than three words fall back to the whole sentence.
+The sentence is split only into independent clauses: each later part must open with ";" or "while", "whereas", "but", "although", "though" or "however" and then with something that can be a subject (not an "-ing" or "-ed" word, a preposition, an adverb, or "not"), the opening part must carry no shared frame (a negation, a hedge such as "may", or a reporting frame such as "shows that"), and nothing but punctuation may follow the last citation.
+Narrative citations, a single citation group, a reference cited twice, parts shorter than three words, and any sentence that fails those rules fall back to the whole sentence.
 The model always sees the whole sentence for context and the part it is asked to grade.
-A claim's headline is the best evidenced outcome across its sources, except that when one source backs the claim and another contradicts it, the headline is "Sources disagree", so a contradiction is never hidden behind a supporting source.
+A claim's headline shows a backing grade only when every cited source backs the claim, and then the weakest of them.
+Each source's own grade is shown beside it whenever the headline does not already say it.
+When one source backs the claim and another contradicts it, the headline is "Sources disagree"; when one backs it and another could not be read, checked, or found to address it, the headline is "Not every cited source backs it".
+When no source backs the claim, the headline is the best evidenced of the rest.
+A citation in the sentence that matches nothing in the reference list counts as a source that could not be read, so it also keeps a backing grade out of the headline, and the result names it.
+So a contradicting or unchecked source is never hidden behind a supporting one.
 
 ## Getting the source text, and the CORS decision
 
@@ -94,6 +101,7 @@ For a reference with a DOI, the app first asks Europe PMC for an open-access cop
 Full text longer than 120,000 characters is cut at a paragraph boundary, and the app says so.
 If there is no open-access copy, the app asks OpenAlex for the work and rebuilds the abstract from its `abstract_inverted_index`, marking any missing word positions with `[...]` so no quote can join words that were not next to each other.
 For every other reference, the user pastes the source text, and the app says so instead of trying a workaround.
+When a check is superseded (the text changes, or the user switches to the sample run), its outside requests are cancelled and no further model calls are made for it.
 Each source request is abandoned after 20 seconds and each model call after 120 seconds, so a slow service turns into "not reachable" or "check failed" instead of a page that waits forever; on 2026-11-24 a Europe PMC search took 15.7 seconds from this machine.
 The app never uses a third-party CORS proxy, because a proxy would receive the user's text and key without the user knowing.
 What leaves the browser in a live run: the DOI goes to Europe PMC and, when needed, to OpenAlex; the claim and the source text go to OpenRouter under the user's own key; nothing else is sent anywhere.
@@ -116,11 +124,13 @@ For the first three grades, `evidence` must be one whole sentence copied exactly
 
 The model's reply is read from a fenced JSON block or the outermost braces; anything that is not valid JSON with a known grade becomes "cannot tell" with the reason "The model's answer could not be read."
 For any grade other than `cannot_tell`, the quote must be one or more whole sentences that occur in the source text, or the grade is discarded and the outcome becomes "cannot tell" with the reason shown and the discarded answer struck through.
-"Whole sentences" means the match starts at the start of the text or after sentence-ending punctuation and whitespace, and ends at the end of the text or with sentence-ending punctuation followed by whitespace; a fragment is rejected because a fragment can drop a "no evidence that" or a "previous studies suggested".
+"Whole sentences" means the match starts where a sentence starts and ends where a sentence ends (with or without the citation markers after it), using the same splitter as the claims, which does not end a sentence at an abbreviation such as "e.g." or at an initial; a fragment is rejected because a fragment can drop a "no evidence that" or a "previous studies suggested".
 "Occur" means a literal substring match after only these normalisations, applied to both sides: Unicode NFC (not NFKC, which would turn a superscript 10 to the sixth into 106), typographic ligatures expanded, soft hyphens and zero-width characters removed, curly quotes made straight, all dash and hyphen variants made plain hyphens, and runs of whitespace made one space; one pair of quotation marks around the whole quote is ignored.
 The match is case sensitive, and no other fuzzy matching is allowed.
 A quote shorter than 20 characters after normalisation is rejected.
-The model's reason is shown as the model's words, with links removed and its length capped at 280 characters.
+A quote that shares no key word with the claim is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes.
+The model's reason, and any discarded quote, are shown as the model's words, with links (with or without a scheme) removed and the length capped at 280 characters.
 A source with no text gives "source not reachable" without calling the model.
 A failed model call (rate limit, network, server error) gives "check failed", never a grade and never "cannot tell"; a rejected key stops the run with a message.
 
@@ -129,7 +139,7 @@ A failed model call (rate limit, network, server error) gives "check failed", ne
 A literal quote can exist in the source and still not support the claim: it can describe another population, a different measure, an earlier study, or a hedged correlation.
 The app cannot verify meaning, so the interface is built so the reader checks the sentence instead of trusting a badge.
 Grades the model gives are worded as its reading: "Supported, in the model's reading", "Partly supported, in the model's reading", "Not supported, in the model's reading".
-Outcomes the app decides itself are worded plainly: "Cannot tell", "Source not reachable", "Check failed", "Sources disagree".
+Outcomes the app decides itself are worded plainly: "Cannot tell", "Source not reachable", "Check failed", "Sources disagree", "Not every cited source backs it".
 The verified sentence is always shown, highlighted inside the sentence before and after it, because the neighbouring sentences are where a "However, in our cohort" or a change of population usually sits.
 Under every kept quote a fixed line says the sentence is in the source word for word and that whether it backs the claim is the model's reading, so the reader should read it.
 Deterministic warnings point at what to read for: a number in the claim that is not in the quote, a negation in the quote that the claim lacks, hedged wording in the quote that the claim lacks, and wording that suggests earlier work.
@@ -139,10 +149,12 @@ The closing panel restates what the app checked and what it did not.
 ## Prompt injection
 
 Source text is untrusted data, and so is any text the student pastes.
-The source sits inside tags that carry a random value generated for each call, and every copy of that value is removed from the source first, so the source cannot close its own fence.
+The student's sentence, the cited part, and the source each sit inside tags that carry a random value generated for each call, and every copy of that value is removed from them first, so no text can close its own fence.
+The system prompt says that both the student's sentence and the source are data.
 The rules are repeated after the source, so the source never has the last word in the prompt.
 The model's reason is shown as its words with links removed, and its grade only survives if its quote is a whole sentence of the source.
-This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence of its own, and the README says so.
+A quote that shares no key word with the claim is discarded, so steering the model toward an unrelated real sentence fails.
+This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence that shares a word with the claim, and the README says so.
 
 ## Architecture
 

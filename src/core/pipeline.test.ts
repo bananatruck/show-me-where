@@ -79,8 +79,10 @@ describe("runCheck", () => {
       },
       provider,
     );
-    expect(users[0]).toContain("PART CITED TO THIS SOURCE:\nMemory scores rose sharply\n");
-    expect(users[1]).toContain("PART CITED TO THIS SOURCE:\nwhile reaction times did not change at all\n");
+    expect(users[0]).toMatch(/PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nMemory scores rose sharply\n/);
+    expect(users[1]).toMatch(
+      /PART CITED TO THIS SOURCE[^\n]*\n<student-[0-9a-f]{12}>\nwhile reaction times did not change at all\n/,
+    );
     expect(users[1]).toMatch(/<source-[0-9a-f]{12}>\nSource two.\n<\/source-[0-9a-f]{12}>/);
   });
 
@@ -111,6 +113,46 @@ describe("runCheck", () => {
         }
       }
     }
+  });
+
+  it("never shows a backing headline for a claim that also cites a reference that is not in the list", async () => {
+    const analysis = analyzeText("Mortality fell by 50% [1, 3].\nReferences\n[1] One.\n[2] Two.");
+    expect(analysis.claims[0]?.unresolved).toEqual(["[3]"]);
+    const provider: ModelProvider = {
+      label: "spy",
+      async complete() {
+        return JSON.stringify({ grade: "supported", evidence: "Mortality fell by 50% in the trial.", reason: "r" });
+      },
+    };
+    const report = await runCheck(
+      analysis,
+      { 1: { status: "ok", text: "Mortality fell by 50% in the trial.", origin: "pasted" } },
+      provider,
+    );
+    expect(report.results[0]?.perSource.map((p) => p.judgement.grade)).toEqual(["supported"]);
+    expect(report.results[0]?.headline).toBe("not_every_source_backs_it");
+  });
+
+  it("stops calling the model once the run is no longer current", async () => {
+    const analysis = analyzeText("A holds here [1]. B holds here [1].\nReferences\n[1] X.");
+    let current = true;
+    const calls: string[] = [];
+    const provider: ModelProvider = {
+      label: "spy",
+      async complete(request) {
+        calls.push(request.key);
+        current = false;
+        return JSON.stringify({ grade: "cannot_tell", evidence: "", reason: "r" });
+      },
+    };
+    await runCheck(
+      analysis,
+      { 1: { status: "ok", text: "Source text.", origin: "pasted" } },
+      provider,
+      undefined,
+      () => current,
+    );
+    expect(calls).toEqual(["c1:1"]);
   });
 
   it("does not call the model for an unreachable source", async () => {

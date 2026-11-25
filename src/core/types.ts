@@ -45,6 +45,8 @@ export interface Claim {
    * different parts, as in "A rose (Smith, 2020) while B fell (Lee, 2019)".
    */
   scopes: Record<number, string>;
+  /** Citations in this sentence that match nothing in the reference list, such as "[3]". */
+  unresolved: string[];
 }
 
 /**
