@@ -243,7 +243,7 @@ const SHARED_FRAME =
 
 /** Words that cannot begin a subject: adverbs, prepositions and negations. */
 const NOT_A_SUBJECT = new Set(
-  "not no also only still then thus so in on at for with to by from of as being having more less even yet instead rather especially mainly mostly particularly notably".split(
+  "not no also only still then thus so in on at for with to by from of as being having more less even yet instead rather especially mainly mostly particularly notably very quite too well".split(
     " ",
   ),
 );
@@ -252,12 +252,14 @@ const NOT_A_SUBJECT = new Set(
  * Whether a later part, after its opener, starts with something that can be
  * a subject: "while reaction times did not change" does, but "while reducing
  * mortality" and "but not in older patients" lean on the first part's subject.
+ * Adverb-led parts keep the whole sentence too, so "significantly reducing"
+ * cannot lose the subject it shares with the opening clause.
  */
 function opensWithSubject(part: string): boolean {
   const rest = part.replace(CLAUSE_OPENER, "");
   const first = /[\p{L}\p{N}]+/u.exec(rest)?.[0]?.toLowerCase();
   if (!first) return false;
-  return !NOT_A_SUBJECT.has(first) && !/(?:ing|ed)$/.test(first);
+  return !NOT_A_SUBJECT.has(first) && !/(?:ing|ed|ly)$/.test(first);
 }
 
 /** How a later part of a sentence must open to stand as its own clause. */

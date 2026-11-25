@@ -169,6 +169,19 @@ describe("extractClaims", () => {
     expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
   });
 
+  it("keeps the shared subject for adverb-led participial continuations", () => {
+    for (const continuation of [
+      "while significantly reducing mortality in adults",
+      "while substantially improving outcomes in adults",
+      "but rapidly reducing mortality in adults",
+      "while very significantly reducing mortality in adults",
+    ]) {
+      const { claims } = extractClaims(`Drug X improves survival [1], ${continuation} [2].`, "numeric", numericRefs([1, 2]));
+      const whole = `Drug X improves survival, ${continuation}.`;
+      expect(claims[0]?.scopes).toEqual({ 1: whole, 2: whole });
+    }
+  });
+
   it("uses the whole sentence when a narrative citation is mixed with parenthetical ones", () => {
     const references = parseAuthorYearReferences(
       [
