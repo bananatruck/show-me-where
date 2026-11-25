@@ -51,6 +51,15 @@ describe("sources", () => {
     ]);
   });
 
+  it.each([
+    { The: [0], treatment: [1], significantly: [3], improved: [4], survival: [5], in: [6], adult: [7], "patients.": [8] },
+    { Treatment: [1], improved: [2], survival: [3], in: [4], "adults.": [5] },
+    { Treatment: [0], worsened: [1], improved: [1], survival: [2], in: [3], "adults.": [4] },
+  ])("fetchSourceByDoi rejects an incomplete or conflicting abstract: %j", async (index) => {
+    const fakeFetch: FetchLike = async () => new Response(JSON.stringify({ abstract_inverted_index: index }));
+    expect(await fetchSourceByDoi("10.1234/incomplete", fakeFetch)).toMatchObject({ status: "unreachable" });
+  });
+
   it("fetchSourceByDoi reports a missing DOI on 404", async () => {
     const fakeFetch: FetchLike = async () => new Response(null, { status: 404 });
     expect(await fetchSourceByDoi("10.1234/missing", fakeFetch)).toEqual({

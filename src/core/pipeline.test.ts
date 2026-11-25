@@ -3,6 +3,7 @@ import { SAMPLE_RUN } from "../fixtures/sample";
 import { REASONS } from "./grading";
 import { analyzeText, resolveSources, runCheck } from "./pipeline";
 import { ProviderError, createReplayProvider, type ModelProvider } from "./provider";
+import { fetchSourceByDoi } from "./sources";
 import type { SourceText } from "./types";
 
 function sampleSources(): Record<number, SourceText> {
@@ -59,6 +60,31 @@ describe("resolveSources", () => {
 });
 
 describe("runCheck", () => {
+  it("never grades an abstract with a missing position", async () => {
+    const analysis = analyzeText(
+      "Treatment significantly improved survival [1].\nReferences\n[1] Study. doi:10.1000/study",
+    );
+    const sources = await resolveSources(analysis, {}, (doi) => fetchSourceByDoi(doi, async () =>
+      new Response(JSON.stringify({ abstract_inverted_index: {
+        The: [0], treatment: [1], significantly: [3], improved: [4], survival: [5], in: [6], adult: [7], "patients.": [8],
+      } })),
+    ));
+    const calls: string[] = [];
+    const report = await runCheck(analysis, sources, {
+      label: "replay",
+      async complete(request) {
+        calls.push(request.key);
+        return JSON.stringify({
+          grade: "supported",
+          evidence: "The treatment [...] significantly improved survival in adult patients.",
+          reason: "The abstract states this.",
+        });
+      },
+    });
+    expect(calls).toEqual([]);
+    expect(report.results[0]?.headline).toBe("source_not_reachable");
+  });
+
   // No part of a sentence is ever cut off for one source: a continuation can
   // lean on the rest of the sentence in ways a word-level rule cannot see.
   it.each([
