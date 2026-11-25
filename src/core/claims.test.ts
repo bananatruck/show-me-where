@@ -41,6 +41,16 @@ describe("splitSentences", () => {
     ]);
   });
 
+  it.each([
+    ["It rose. [but only in mice] Then it fell.", ["It rose. [but only in mice]", "Then it fell."]],
+    ["It rose.[but only in mice] Then it fell.", ["It rose.[but only in mice]", "Then it fell."]],
+    ["It rose. [but only in mice]", ["It rose. [but only in mice]"]],
+    ["It rose. [but only in mice] [2] Then it fell.", ["It rose. [but only in mice] [2]", "Then it fell."]],
+    ["See below. [Table 1] shows the data.", ["See below.", "[Table 1] shows the data."]],
+  ])("keeps a bracketed qualification with the sentence before it: %j", (text, sentences) => {
+    expect(splitSentences(text)).toEqual(sentences);
+  });
+
   it("always splits at a blank line", () => {
     expect(splitSentences("A heading\n\nThe text.")).toEqual(["A heading", "The text."]);
   });

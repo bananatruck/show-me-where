@@ -67,6 +67,24 @@ const ABBREVIATIONS = new Set([
 const MARKER_INNER = String.raw`\d+(?:\s*[-\u2013]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-\u2013]\s*\d+)?)*`;
 const MARKER_RUN = new RegExp(String.raw`^(?:\s*\[${MARKER_INNER}\])*`);
 const MARKER_TAIL = new RegExp(String.raw`[.!?]["')\u201D\u2019]*(?:\s*\[${MARKER_INNER}\])*$`);
+// Bracketed prose after a stop, with or without a space before it, as in "It rose. [but only in mice]".
+const BRACKET_GROUP = /^\s*\[[^\]\n]*\][.!?]?["')\u201D\u2019]*/;
+
+/**
+ * The end of a bracketed qualification that starts at `from`, or null. Bracketed prose belongs to the
+ * sentence before it when nothing of its own sentence follows: the paragraph ends, or a new sentence
+ * starts. Then a quote of that sentence must include it. "[Table 1] shows the data." goes on after the
+ * bracket, so it opens the next sentence instead.
+ */
+function qualificationEnd(text: string, from: number, pEnd: number): number | null {
+  const group = BRACKET_GROUP.exec(text.slice(from, pEnd));
+  if (!group) return null;
+  const after = from + group[0].length;
+  const rest = text.slice(after, pEnd);
+  if (/^\s*$/.test(rest)) return after;
+  const next = /^\s+(\S+)/.exec(rest)?.[1];
+  return next !== undefined && startsASentence(next) ? after : null;
+}
 
 function isAbbreviation(textBeforeStop: string): boolean {
   const word = /([A-Za-z][A-Za-z.]*)$/.exec(textBeforeStop)?.[1];
@@ -130,7 +148,14 @@ export function sentenceSpans(text: string): SentenceSpan[] {
       if (ch === "." || ch === "!" || ch === "?") {
         let stop = i + 1;
         while (stop < pEnd && "\"')\u201D\u2019".includes(text[stop] ?? "")) stop += 1;
-        const end = stop + (MARKER_RUN.exec(text.slice(stop, pEnd))?.[0].length ?? 0);
+        let end = stop + (MARKER_RUN.exec(text.slice(stop, pEnd))?.[0].length ?? 0);
+        // A bracketed qualification is part of the sentence, so the sentence stops after it; numeric
+        // markers may still follow.
+        const qualified = qualificationEnd(text, end, pEnd);
+        if (qualified !== null) {
+          stop = qualified;
+          end = qualified + (MARKER_RUN.exec(text.slice(qualified, pEnd))?.[0].length ?? 0);
+        }
         const next = /^\s+(\S+)/.exec(text.slice(end, pEnd))?.[1];
         const boundary =
           next !== undefined &&

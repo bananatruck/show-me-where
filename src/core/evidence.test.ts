@@ -37,16 +37,24 @@ describe("normalizeForMatch", () => {
 });
 
 describe("checkEvidence", () => {
-  it.each(["", " Further research is needed."])("keeps adjacent bracketed qualifications in evidence: %s", (tail) => {
+  // A bracketed qualification after a sentence's stop, with or without a space, belongs to that sentence:
+  // a quote must include it. A genuine following sentence stays a sentence of its own.
+  it.each([
+    ["", ""],
+    ["", " Further research is needed."],
+    [" ", ""],
+    [" ", " Further research is needed."],
+  ])("keeps bracketed qualifications in evidence: separator %j, tail %j", (separator, tail) => {
     const sentence = "The treatment substantially improved memory performance in the study population.";
-    const qualified = `${sentence}[but only in mice]`;
+    const qualified = `${sentence}${separator}[but only in mice]`;
     const source = qualified + tail;
     expect(checkEvidence(sentence, source)).toEqual({ ok: false, reason: "not_full_sentence" });
-    expect(checkEvidence(source, source)).toEqual({ ok: true, before: "", after: "" });
+    expect(checkEvidence(qualified, source)).toMatchObject({ ok: true, before: "" });
     const prior = "The experiment measured memory performance.";
-    expect(checkEvidence(prior, `${prior} ${source}`)).toMatchObject({
-      ok: true, after: source,
-    });
+    expect(checkEvidence(prior, `${prior} ${source}`)).toMatchObject({ ok: true, after: qualified });
+    if (tail) {
+      expect(checkEvidence(tail.trim(), source)).toMatchObject({ ok: true, before: qualified });
+    }
   });
 
   it.each(["[1]", " [1, 3-5]", "[1][2]"])("accepts trailing numeric markers: %s", (marker) => {
