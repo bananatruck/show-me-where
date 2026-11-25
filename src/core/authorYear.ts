@@ -132,8 +132,9 @@ const PARENTHETICAL = /\s*\(([^()]+)\)/g;
 const NAME_WORD = String.raw`(?:${PARTICLE}\s+)*\p{Lu}[\p{L}\p{M}'\u2018\u2019\-]+`;
 // Up to six name words, so group names such as "World Health Organization" fit.
 const NAME_RUN = String.raw`${NAME_WORD}(?:\s+${NAME_WORD}){0,5}`;
+// Every pattern fragment is a constant; no input text is interpolated.
 const NARRATIVE = new RegExp(
-  String.raw`(?<![\p{L}\p{M}\p{N}'\u2018\u2019\-])(${NAME_RUN}(?:\s+(?:&|and)\s+${NAME_RUN}|\s+et al\.)?)\s+\((${YEAR})(?:,\s*pp?\.\s*[^)]+)?\)`,
+  String.raw`(?<![\p{L}\p{M}\p{N}'\u2018\u2019\-])(${NAME_RUN}(?:\s+(?:&|and)\s+${NAME_RUN}|\s+et al\.)?)\s+\((${YEAR}(?:,\s*${YEAR})*)(?:,\s*pp?\.\s*[^)]+)?\)`,
   "gu",
 );
 const NAME_WORD_START = new RegExp(NAME_WORD, "gu");
@@ -178,28 +179,34 @@ export function findAuthorYearCitations(
 
   for (const match of sentence.matchAll(NARRATIVE)) {
     const run = match[1] ?? "";
-    const year = match[2] ?? "";
+    const years = (match[2] ?? "").split(",").map((year) => year.trim());
     const starts = readingStarts(run);
     let found = false;
     // The run can begin with an ordinary capitalised word such as "Recently",
     // so try each reading from the longest down and keep the first that resolves.
     for (const offset of starts) {
       const group = readAuthors(run.slice(offset));
-      const ref = group ? resolve(group, year, refs) : null;
-      if (ref !== null) {
+      const resolved = years.map((year) => group ? resolve(group, year, refs) : null);
+      const numbers = resolved.filter((ref) => ref !== null);
+      if (numbers.length > 0) {
         citations.push({
           start: match.index + offset,
           end: match.index + match[0].length,
-          refs: [ref],
+          refs: [...new Set(numbers)].sort((a, b) => a - b),
           narrative: true,
         });
+        for (const [i, year] of years.entries()) {
+          if (resolved[i] === null && group) unresolved.push(`${group.authors}, ${year}`);
+        }
         found = true;
         break;
       }
     }
     if (!found) {
       const shortest = readAuthors(run.slice(starts.at(-1) ?? 0));
-      if (shortest) unresolved.push(`${shortest.authors}, ${year}`);
+      if (shortest) {
+        for (const year of years) unresolved.push(`${shortest.authors}, ${year}`);
+      }
     }
   }
 
@@ -207,22 +214,56 @@ export function findAuthorYearCitations(
     const start = match.index;
     if (citations.some((c) => start >= c.start && start < c.end)) continue;
     const found = new Set<number>();
-    for (const part of (match[1] ?? "").split(";")) {
-      const read = readPart(part.trim());
-      if (!read) continue;
-      for (const year of read.years) {
-        const ref = resolve(read.group, year, refs);
-        if (ref === null) unresolved.push(`${read.group.authors}, ${year}`);
-        else found.add(ref);
+    let offset = start + match[0].indexOf("(") + 1;
+    const parts = (match[1] ?? "").split(";").map((text) => {
+      const partStart = offset;
+      offset += text.length + 1;
+      const read = readPart(text.trim());
+      const numbers: number[] = [];
+      if (read) {
+        for (const year of read.years) {
+          const ref = resolve(read.group, year, refs);
+          if (ref === null) unresolved.push(`${read.group.authors}, ${year}`);
+          else {
+            found.add(ref);
+            numbers.push(ref);
+          }
+        }
       }
-    }
-    if (found.size > 0) {
+      return {
+        start: partStart + text.length - text.trimStart().length,
+        end: partStart + text.trimEnd().length,
+        read,
+        refs: numbers,
+      };
+    });
+    if (found.size === 0) continue;
+    // Only citation-only parentheses may be removed whole. In mixed groups,
+    // remove runs of citation parts and one separator, preserving every qualifier
+    // and a semicolon between any remaining non-citation parts.
+    if (parts.every((part) => part.read !== null)) {
       citations.push({
         start,
         end: start + match[0].length,
         refs: [...found].sort((a, b) => a - b),
         narrative: false,
       });
+    } else {
+      for (const [i, part] of parts.entries()) {
+        if (!part.read || parts[i - 1]?.read) continue;
+        let last = i;
+        while (parts[last + 1]?.read) last += 1;
+        const previous = parts[i - 1];
+        const next = parts[last + 1];
+        citations.push({
+          start: previous?.end ?? start + match[0].indexOf("(") + 1,
+          end: previous
+            ? next ? (parts[last]?.end ?? part.end) : start + match[0].length - 1
+            : (next?.start ?? part.end),
+          refs: [...new Set(parts.slice(i, last + 1).flatMap((p) => p.refs))].sort((a, b) => a - b),
+          narrative: false,
+        });
+      }
     }
   }
 

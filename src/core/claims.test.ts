@@ -98,6 +98,33 @@ function numericRefs(numbers: number[]): Reference[] {
 }
 
 describe("extractClaims", () => {
+  it.each([
+    ["only in mice; Smith, 2020", "only in mice"],
+    ["Smith, 2020; only in mice", "only in mice"],
+    ["only in mice; Smith, 2020; not in adults", "only in mice; not in adults"],
+    ["Smith, 2020; Jones, 2021; only in mice", "only in mice"],
+    ["only in mice; Smith, 2020; Jones, 2021", "only in mice"],
+  ])("preserves qualifications in mixed citation parentheses: %s", (parenthesis, kept) => {
+    const references = parseAuthorYearReferences(
+      "Smith, J. (2020). First study.\nJones, J. (2021). Second study.",
+    );
+    const { claims } = extractClaims(`Memory improved (${parenthesis}).`, "author_year", references);
+    expect(claims[0]?.text).toBe(`Memory improved (${kept}).`);
+    expect(claims[0]?.refs).toEqual(parenthesis.includes("Jones") ? [1, 2] : [1]);
+  });
+
+  it("checks every year in a narrative citation against the whole sentence", () => {
+    const references = parseAuthorYearReferences(
+      "Smith, J. (2020). First study.\nSmith, J. (2021). Second study.",
+    );
+    const sentence = "Smith (2020, 2021) found an improvement.";
+    expect(extractClaims(sentence, "author_year", references)).toEqual({
+      claims: [{ id: "c1", text: sentence, sentence, refs: [1, 2], unresolved: [] }],
+      uncited: [],
+      unresolved: [],
+    });
+  });
+
   it("returns cited sentences as claims and lists uncited ones", () => {
     const body =
       "Sleep improves memory [1]. This matters for students. Naps help too [2, 3].";
