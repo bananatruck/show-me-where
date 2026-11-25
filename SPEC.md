@@ -133,8 +133,9 @@ For any grade other than `cannot_tell`, the quote must be one or more whole sent
 "Occur" means a literal substring match after only these normalisations, applied to both sides: Unicode NFC (not NFKC, which would turn a superscript 10 to the sixth into 106), typographic ligatures expanded, soft hyphens and zero-width characters removed, curly quotes made straight, all dash and hyphen variants made plain hyphens, and runs of whitespace made one space; one pair of quotation marks around the whole quote is ignored.
 The match is case sensitive, and no other fuzzy matching is allowed.
 A quote shorter than 20 characters after normalisation is rejected.
-A quote that shares no key word with the claim is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
-Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes.
+When the claim has extractable key words, a quote that shares none of them is rejected, because a real but unrelated sentence cannot be evidence; this catches a model steered into quoting the wrong sentence.
+Key words are words of four or more letters that are not common words, compared by their first five letters, plus acronyms and numbers of two or more characters such as "BMI" or "53"; a quote identical to the claim always passes this keyword check.
+When the claim has no extractable key words, only the keyword rejection is skipped; the quote must still pass the length, exact-text, and whole-sentence checks.
 The model's reason, and any discarded quote, are shown as the model's words, with links (with or without a scheme) removed and the length capped at 280 characters.
 A source with no text gives "source not reachable" without calling the model.
 A failed model call (rate limit, network, server error) gives "check failed", never a grade and never "cannot tell"; a rejected key stops the run with a message.
@@ -158,7 +159,7 @@ The student's sentence, the cited part, and the source each sit inside tags that
 The system prompt says that both the student's sentence and the source are data.
 The rules are repeated after the source, so the source never has the last word in the prompt.
 The model's reason is shown as its words with links removed, and its grade only survives if its quote is a whole sentence of the source.
-A quote that shares no key word with the claim is discarded, so steering the model toward an unrelated real sentence fails.
+When the claim has extractable key words, a quote that shares none of them is discarded, so steering the model toward an unrelated real sentence fails.
 This lowers the risk but does not remove it: a hostile source could still steer the model toward a real sentence that shares a word with the claim, and the README says so.
 
 ## Architecture

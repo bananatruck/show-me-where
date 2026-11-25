@@ -267,12 +267,13 @@ function keyWords(text: string): Set<string> {
 
 /**
  * A real sentence that shares no key word with the claim cannot be evidence
- * for it, whatever the model says. This catches a model steered by hostile
- * text into quoting an unrelated sentence of the source.
+ * for it when the claim has extractable key words. With none, this heuristic
+ * cannot compare content; the whole-sentence and source-match checks still apply.
  */
 export function sharesKeyWord(claim: string, evidence: string): boolean {
   if (normalizeForMatch(claim) === normalizeForMatch(evidence)) return true;
   const claimWords = keyWords(claim);
+  if (claimWords.size === 0) return true;
   for (const word of keyWords(evidence)) if (claimWords.has(word)) return true;
   return false;
 }

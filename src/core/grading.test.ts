@@ -273,6 +273,21 @@ describe("student text and model steering", () => {
     expect(sharesKeyWord("The BMI was low.", "The HDL was low.")).toBe(false);
   });
 
+  it("keeps verified evidence when the claim has no extractable key words", () => {
+    for (const quote of ["The men ate no fat at all.", "The men ate no fat during the trial."]) {
+      expect(judgeReply(reply("supported", quote), quote, "The men ate no fat.")).toMatchObject({
+        grade: "supported", evidence: quote, discarded: null,
+      });
+    }
+  });
+
+  it("still rejects absent, partial, and short evidence for a claim with no key words", () => {
+    const source = "The men ate no fat at all.";
+    for (const quote of ["The men ate no fat at noon.", "men ate no fat at all.", "The men ate no fat."]) {
+      expect(judgeReply(reply("supported", quote), source, "The men ate no fat.").grade).toBe("cannot_tell");
+    }
+  });
+
   it("keeps a grade whose quote shares a key word with the claim", () => {
     const quote = "Memory scores rose by 8% after two weeks of extra sleep.";
     expect(judgeReply(reply("partly_supported", quote), SOURCE, "Memory improved a lot.").grade).toBe(

@@ -38,7 +38,8 @@ A sample run, labelled on screen as a synthetic hand-written example, shows ever
 - The app, not the model, decides what reaches the student. A grade survives only if its quote is one or more whole sentences found word for word in the source text, after normalising only quotes, dashes, ligatures, invisible characters and whitespace. Quoting part of a sentence is rejected, because a fragment can drop a "no evidence that".
 - Kept grades are worded as the model's reading, and each quote is shown between its neighbouring sentences so the student can see a "However" or a change of population.
 - Deterministic warnings flag a number in the claim that the quote lacks, and negations, hedges, or earlier-work wording in the quote that the claim lacks. Warnings never change a grade.
-- A quote that shares no key word with the claim is discarded, so a model steered into quoting an unrelated real sentence gets nothing through.
+- When the claim has extractable key words, a quote that shares none of them is discarded, so a model steered into quoting an unrelated real sentence gets nothing through.
+  A claim with no extractable key words skips this keyword check, while the quote must still be long enough and match whole source sentences.
 - A claim shows a backing grade only if every cited source backs it; otherwise it reads "Sources disagree" or "Not every cited source backs it".
 - A failed model call is shown as "check failed", never as a grade.
 - Source text is fenced in the prompt with a random tag for each call, and the rules are repeated after it, to reduce prompt injection from hostile source text.
